@@ -1,0 +1,24 @@
+[project]
+name = "doc_generator"
+version = "0.1.0"
+description = "doc_generator using crewAI"
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "crewai[tools]==1.9.3"
+]
+
+[project.scripts]
+doc_generator = "doc_generator.main:run"
+run_crew = "doc_generator.main:run"
+train = "doc_generator.main:train"
+replay = "doc_generator.main:replay"
+test = "doc_generator.main:test"
+run_with_trigger = "doc_generator.main:run_with_trigger"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.crewai]
+type = "crew"

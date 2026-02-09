@@ -1,0 +1,262 @@
+structural_analysis_task:
+  description: >
+    IMPORTANT: You MUST actually CALL the Structure Extractor tool with folder_path="{folder_path}" to analyze the codebase.
+    Do NOT just describe the tool - you must execute it and use its results.
+    Analyze the codebase at {folder_path} and extract all structural information by calling the Structure Extractor tool.
+    The tool will return files, modules, classes, and functions information.
+    Create a comprehensive structural map based on the ACTUAL tool output.
+  expected_output: >
+    A detailed structural analysis report based on ACTUAL tool execution results, including:
+    - All detected languages with file counts and percentages
+    - Complete file inventory
+    - Module/class/function counts
+    - Entry points identified
+    - Structural statistics
+    Use the actual data returned by the Structure Extractor tool, not placeholder data.
+  agent: structural_scanner
+
+dependency_analysis_task:
+  description: >
+    IMPORTANT: You MUST actually CALL the Dependency Analyzer tool with folder_path="{folder_path}" to analyze dependencies.
+    Do NOT just describe the tool - you must execute it and use its results.
+    Analyze dependencies in the codebase at {folder_path} by calling the Dependency Analyzer tool.
+    The tool will return import relationships, external vs internal dependencies, and dependency graph structure.
+    Use the ACTUAL tool output to create your report.
+  expected_output: >
+    A dependency analysis report based on ACTUAL tool execution results with:
+    - List of external dependencies (from tool output)
+    - Internal dependency relationships (from tool output)
+    - Dependency graph summary (from tool output)
+    - Architectural layer identification
+  agent: dependency_analyzer_agent
+
+semantic_understanding_task:
+  description: >
+    Analyze the semantic meaning of the codebase structure extracted in previous tasks.
+    For each major component (class, function, module):
+    - Infer purpose from names, docstrings, and context
+    - Assign confidence scores to inferences
+    - Group related components
+    - Identify patterns and conventions
+    Flag any low-confidence inferences for review.
+  expected_output: >
+    A semantic analysis report with:
+    - Component purpose descriptions with confidence scores
+    - Grouped components by functionality
+    - Identified patterns and conventions
+    - List of low-confidence items requiring review
+  agent: api_semantics_agent
+
+architecture_analysis_task:
+  description: >
+    Analyze the architectural patterns and design of the codebase.
+    Based on structure and semantic understanding:
+    - Identify architectural patterns (MVC, layered, microservices, etc.)
+    - Map component roles (service, controller, model, utility, etc.)
+    - Identify architectural layers
+    - Explain system organization
+  expected_output: >
+    An architecture analysis report with:
+    - Identified architectural patterns
+    - Component role mapping
+    - Layer structure
+    - System organization explanation
+  agent: architecture_agent
+
+api_documentation_task:
+  description: >
+    IMPORTANT: Use the ACTUAL structural analysis results from previous tasks. Call Structure Extractor tool if needed with folder_path="{folder_path}".
+    Generate comprehensive API reference documentation in JSON format based on REAL code structure.
+    Extract information from the structural analysis task output - use actual classes, functions, and methods found.
+    - Document all public APIs (classes, functions, methods) that ACTUALLY exist in the codebase
+    - Include parameters, return types, and descriptions from actual code
+    - Add usage notes and important details
+    - Organize by module/namespace
+    CRITICAL: Only document what actually exists - never invent APIs. Use real data from tool outputs.
+    Output format: JSON array with structure:
+    [
+      {
+        "module": "actual_module_path_from_codebase",
+        "description": "Module description based on actual code",
+        "classes": [
+          {
+            "name": "ActualClassName",
+            "description": "Class description from code",
+            "constructor_params": [{"name": "param", "type": "type", "description": "desc"}],
+            "methods": [
+              {
+                "name": "actual_method_name",
+                "description": "Method description from code",
+                "parameters": [{"name": "param", "type": "type", "description": "desc", "required": true}],
+                "returns": {"type": "return_type", "description": "description"},
+                "raises": [{"exception": "ExceptionName", "description": "when raised"}],
+                "example": "actual code example"
+              }
+            ]
+          }
+        ],
+        "functions": [{"name": "function_name", "description": "...", "parameters": [...], "returns": {...}}]
+      }
+    ]
+  expected_output: >
+    Complete API reference in JSON format array, organized by module.
+    MUST use actual data from codebase analysis - no placeholder or invented APIs.
+    Each API entry must include full signature, parameters, return types, and examples based on real code.
+  agent: api_doc_agent
+
+architecture_documentation_task:
+  description: >
+    Create architecture overview documentation in JSON format.
+    Based on architecture analysis:
+    - Explain system design and organization
+    - Describe major components and their roles
+    - Document component relationships
+    - Explain architectural decisions
+    - Identify design patterns
+    Output format: JSON object with structure:
+    {
+      "summary": "Brief system overview",
+      "components": [
+        {
+          "name": "ComponentName",
+          "description": "Component description",
+          "responsibilities": [...],
+          "dependencies": [...]
+        }
+      ],
+      "design_patterns": [
+        {
+          "pattern_name": "PatternName",
+          "where_used": "Location",
+          "rationale": "Why used"
+        }
+      ],
+      "data_flow": "Description of data flow"
+    }
+  expected_output: >
+    Architecture documentation in JSON format with summary, components, design patterns, and data flow.
+  agent: architecture_doc_agent
+
+example_generation_task:
+  description: >
+    Generate practical usage examples for the documented APIs in JSON format.
+    Create examples that:
+    - Are based on actual API structure
+    - Demonstrate real-world usage
+    - Are complete and runnable
+    - Cover common use cases
+    Never invent APIs or parameters - only use what exists.
+    Output format: JSON array with structure:
+    [
+      {
+        "title": "Example Title",
+        "description": "What this example demonstrates",
+        "difficulty": "beginner|intermediate|advanced",
+        "code": "Complete runnable code",
+        "expected_output": "Expected output",
+        "setup_instructions": "Any setup needed"
+      }
+    ]
+  expected_output: >
+    Code examples in JSON format array.
+    Each example must include title, description, difficulty, code, expected_output, and setup_instructions.
+  agent: example_generator_agent
+
+getting_started_task:
+  description: >
+    Create a comprehensive getting started guide in JSON format.
+    Include:
+    - Project overview
+    - Prerequisites and setup instructions
+    - Quick start guide
+    - Basic usage examples
+    - Next steps and learning resources
+    Base everything on actual project structure and dependencies.
+    Output format: JSON object with structure:
+    {
+      "prerequisites": ["requirement1", "requirement2"],
+      "installation": "Installation command or instructions",
+      "quick_start": "Quick start code example",
+      "next_steps": ["step1", "step2", "step3"]
+    }
+  expected_output: >
+    Getting Started guide in JSON format with prerequisites, installation, quick_start, and next_steps.
+  agent: getting_started_agent
+
+evaluation_task:
+  description: >
+    Evaluate the quality of all generated documentation and generate metadata.
+    Measure:
+    - Coverage (% of code documented)
+    - Accuracy (verify against actual code)
+    - Consistency (same API described consistently)
+    - Completeness
+    Count:
+    - Total files analyzed
+    - Total functions documented
+    - Total classes documented
+    - Examples generated
+    Output format: JSON object with structure:
+    {
+      "files_analyzed": number,
+      "total_functions_documented": number,
+      "total_classes_documented": number,
+      "examples_generated": number,
+      "qa_issues_found": [
+        {
+          "severity": "info|warning|error",
+          "description": "Issue description",
+          "location": "Where issue was found"
+        }
+      ],
+      "generation_timestamp": "ISO timestamp"
+    }
+  expected_output: >
+    Quality and metadata report in JSON format with counts, issues, and timestamp.
+  agent: evaluation_agent
+
+final_documentation_assembly_task:
+  description: >
+    CRITICAL: Extract and combine data from ALL previous task outputs into the EXACT JSON structure below.
+    Review the outputs from:
+    - architecture_documentation_task (for architecture_overview)
+    - api_documentation_task (for api_reference)
+    - example_generation_task (for examples)
+    - getting_started_task (for getting_started)
+    - evaluation_task (for metadata)
+    
+    Extract the actual JSON data from each task output and assemble into this EXACT structure:
+    {
+      "documentation": {
+        "table_of_contents": "# Project Documentation\n\n1. [Architecture Overview](#architecture-overview)\n2. [API Reference](#api-reference)\n3. [Usage Examples](#usage-examples)\n4. [Getting Started](#getting-started)",
+        "architecture_overview": {
+          "summary": "extract from architecture_documentation_task output",
+          "components": "extract components array from architecture_documentation_task",
+          "design_patterns": "extract design_patterns array from architecture_documentation_task",
+          "data_flow": "extract data_flow string from architecture_documentation_task"
+        },
+        "api_reference": "extract api_references array from api_documentation_task (or api_reference key)",
+        "examples": "extract examples array from example_generation_task",
+        "getting_started": {
+          "prerequisites": "extract from getting_started_task",
+          "installation": "extract from getting_started_task",
+          "quick_start": "extract from getting_started_task",
+          "next_steps": "extract from getting_started_task"
+        }
+      },
+      "metadata": {
+        "files_analyzed": "extract number from evaluation_task",
+        "total_functions_documented": "extract number from evaluation_task",
+        "total_classes_documented": "extract number from evaluation_task",
+        "examples_generated": "extract number from evaluation_task",
+        "qa_issues_found": "extract array from evaluation_task",
+        "generation_timestamp": "current ISO timestamp like 2025-02-09T10:57:35Z"
+      }
+    }
+    
+    Output ONLY valid JSON matching this exact structure. Parse and extract from previous task outputs, do not invent data.
+  expected_output: >
+    Complete technical documentation in valid JSON format matching the specified structure exactly.
+    Must be valid, parseable JSON with documentation and metadata sections.
+    Extract real data from previous task outputs - do not create placeholder data.
+  agent: api_doc_agent
