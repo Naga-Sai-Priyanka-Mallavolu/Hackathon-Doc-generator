@@ -5,7 +5,7 @@ from typing import List
 import os
 from litellm.llms.custom_httpx.http_handler import HTTPHandler
 
-from doc_generator.tools import LanguageDetector, StructureExtractor, DependencyAnalyzer
+from doc_generator.tools import StructureExtractor, FileReader
 
 
 # Store original post method
@@ -40,7 +40,7 @@ HTTPHandler.post = _patched_post
 
 @CrewBase
 class DocGenerator():
-    """Multi-agent documentation generation crew."""
+    """Seven-layer documentation system."""
 
     agents: List[BaseAgent]
     tasks: List[Task]
@@ -48,7 +48,7 @@ class DocGenerator():
 
     @property
     def ollama_cloud_llm(self) -> LLM:
-        """Create and return Ollama Cloud LLM instance using official Ollama Cloud SDK pattern"""
+        """Create and return Ollama Cloud LLM instance"""
         cloud_base_url = os.getenv('OLLAMA_CLOUD_BASE_URL', 'https://ollama.com')
         cloud_api_key = os.getenv('OLLAMA_API_KEY', '').strip()
         model_name = os.getenv('OLLAMA_CLOUD_MODEL', 'qwen3-coder-next:latest').replace('-cloud', '')
@@ -56,69 +56,60 @@ class DocGenerator():
         os.environ['OLLAMA_API_KEY'] = cloud_api_key
         
         return LLM(
-            model=f'ollama/{model_name}',  # litellm requires 'ollama/' prefix for native format
+            model=f'ollama/{model_name}',
             base_url=cloud_base_url,
-            api_key=cloud_api_key,  # Pass API key - may need custom header configuration
-        )
-    # Layer 1: Structural Understanding Agents
-    @agent
-    def language_detector_agent(self) -> Agent:
-        return Agent(
-            config=self.agents_config['structural_scanner'],
-            llm=self.ollama_cloud_llm,
-            tools=[LanguageDetector()],
-            verbose=True,
-            allow_delegation=False,
+            api_key=cloud_api_key,
         )
 
+    # Layer 1: Ingestion & Structural Understanding
     @agent
     def structural_scanner(self) -> Agent:
         return Agent(
             config=self.agents_config['structural_scanner'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor()],
+            tools=[StructureExtractor(), FileReader()],
             verbose=True,
             allow_delegation=False,
         )
 
     @agent
-    def dependency_analyzer_agent(self) -> Agent:
+    def dependency_analyzer(self) -> Agent:
         return Agent(
-            config=self.agents_config['dependency_analyzer_agent'],
+            config=self.agents_config['dependency_analyzer'],
             llm=self.ollama_cloud_llm,
-            tools=[DependencyAnalyzer()],
+            tools=[StructureExtractor(), FileReader()],
             verbose=True,
             allow_delegation=False,
         )
 
-    # Layer 2: Semantic Understanding Agents
+    # Layer 2: Semantic Understanding
     @agent
     def api_semantics_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['api_semantics_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor()],
+            tools=[StructureExtractor(), FileReader()],
             verbose=True,
             allow_delegation=False,
         )
 
     @agent
-    def architecture_agent(self) -> Agent:
+    def architecture_reasoning_agent(self) -> Agent:
         return Agent(
-            config=self.agents_config['architecture_agent'],
+            config=self.agents_config['architecture_reasoning_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[DependencyAnalyzer()],
+            tools=[StructureExtractor(), FileReader()],
             verbose=True,
             allow_delegation=False,
         )
 
-    # Layer 3: Documentation Generation Agents
+    # Layer 3: Documentation Assembly
     @agent
     def api_doc_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['api_doc_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor()],
+            tools=[StructureExtractor(), FileReader()],
             verbose=True,
             allow_delegation=False,
         )
@@ -128,7 +119,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['architecture_doc_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor()],
+            tools=[StructureExtractor(), FileReader()],
             verbose=True,
             allow_delegation=False,
         )
@@ -138,7 +129,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['example_generator_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor()],
+            tools=[StructureExtractor(), FileReader()],
             verbose=True,
             allow_delegation=False,
         )
@@ -148,71 +139,71 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['getting_started_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor()],
+            tools=[StructureExtractor(), FileReader()],
             verbose=True,
             allow_delegation=False,
         )
 
-    # Layer 4: Evaluation Agent
+    # Layer 6: Evaluation & Quality
     @agent
     def evaluation_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['evaluation_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor()],
+            tools=[StructureExtractor(), FileReader()],
             verbose=True,
             allow_delegation=False,
         )
 
-    # Tasks - Layer 1: Structural Analysis
-    @task
-    def language_detection_task(self) -> Task:
-        return Task(
-            description=f"IMPORTANT: You MUST actually CALL the Language Detector tool with folder_path={{folder_path}} to detect languages. Do NOT just describe the tool - execute it and use the results. Use the Language Detector tool to identify all programming languages in the codebase. Provide a summary based on ACTUAL tool output.",
-            expected_output="A summary of detected programming languages with file counts and percentages based on actual tool execution results.",
-            agent=self.language_detector_agent(),
+    # Layer 4: Final Assembly
+    @agent
+    def documentation_assembler(self) -> Agent:
+        return Agent(
+            config=self.agents_config['documentation_assembler'],
+            llm=self.ollama_cloud_llm,
+            tools=[StructureExtractor(), FileReader()],
+            verbose=True,
+            allow_delegation=False,
         )
 
+    # Tasks
     @task
-    def structural_analysis_task(self) -> Task:
+    def structural_scan_task(self) -> Task:
         return Task(
-            config=self.tasks_config['structural_analysis_task'],
+            config=self.tasks_config['structural_scan_task'],
             agent=self.structural_scanner(),
-            context=[self.language_detection_task()],
         )
 
     @task
     def dependency_analysis_task(self) -> Task:
         return Task(
             config=self.tasks_config['dependency_analysis_task'],
-            agent=self.dependency_analyzer_agent(),
-            context=[self.language_detection_task(), self.structural_analysis_task()],
+            agent=self.dependency_analyzer(),
+            context=[self.structural_scan_task()],
         )
 
-    # Tasks - Layer 2: Semantic Understanding
     @task
-    def semantic_understanding_task(self) -> Task:
+    def api_semantics_task(self) -> Task:
         return Task(
-            config=self.tasks_config['semantic_understanding_task'],
+            config=self.tasks_config['api_semantics_task'],
             agent=self.api_semantics_agent(),
-            context=[self.language_detection_task(), self.structural_analysis_task(), self.dependency_analysis_task()],
+            context=[self.structural_scan_task()],
         )
 
     @task
-    def architecture_analysis_task(self) -> Task:
+    def architecture_reasoning_task(self) -> Task:
         return Task(
-            config=self.tasks_config['architecture_analysis_task'],
-            agent=self.architecture_agent(),
-            context=[self.language_detection_task(), self.structural_analysis_task(), self.dependency_analysis_task(), self.semantic_understanding_task()],
+            config=self.tasks_config['architecture_reasoning_task'],
+            agent=self.architecture_reasoning_agent(),
+            context=[self.structural_scan_task(), self.dependency_analysis_task()],
         )
 
-    # Tasks - Layer 3: Documentation Generation
     @task
     def api_documentation_task(self) -> Task:
         return Task(
             config=self.tasks_config['api_documentation_task'],
             agent=self.api_doc_agent(),
-            context=[self.language_detection_task(), self.structural_analysis_task(), self.semantic_understanding_task()],
+            context=[self.api_semantics_task()],
         )
 
     @task
@@ -220,13 +211,13 @@ class DocGenerator():
         return Task(
             config=self.tasks_config['architecture_documentation_task'],
             agent=self.architecture_doc_agent(),
-            context=[self.architecture_analysis_task(), self.dependency_analysis_task(), self.semantic_understanding_task()],
+            context=[self.architecture_reasoning_task()],
         )
 
     @task
-    def example_generation_task(self) -> Task:
+    def examples_generation_task(self) -> Task:
         return Task(
-            config=self.tasks_config['example_generation_task'],
+            config=self.tasks_config['examples_generation_task'],
             agent=self.example_generator_agent(),
             context=[self.api_documentation_task()],
         )
@@ -236,46 +227,41 @@ class DocGenerator():
         return Task(
             config=self.tasks_config['getting_started_task'],
             agent=self.getting_started_agent(),
-            context=[self.language_detection_task(), self.structural_analysis_task(), self.dependency_analysis_task()],
+            context=[self.architecture_documentation_task()],
         )
 
-    # Tasks - Layer 4: Evaluation
     @task
-    def evaluation_task(self) -> Task:
+    def quality_evaluation_task(self) -> Task:
         return Task(
-            config=self.tasks_config['evaluation_task'],
+            config=self.tasks_config['quality_evaluation_task'],
             agent=self.evaluation_agent(),
-            context=[
-                self.api_documentation_task(),
-                self.architecture_documentation_task(),
-                self.example_generation_task(),
-                self.getting_started_task(),
-            ],
+            context=[self.api_documentation_task(), self.architecture_documentation_task()],
         )
 
-    # Final Assembly Task
     @task
-    def final_documentation_assembly_task(self) -> Task:
+    def final_assembly_task(self) -> Task:
         return Task(
-            config=self.tasks_config['final_documentation_assembly_task'],
-            agent=self.api_doc_agent(),
+            config=self.tasks_config['final_assembly_task'],
+            agent=self.documentation_assembler(),
             context=[
+                self.structural_scan_task(),
+                self.dependency_analysis_task(),
+                self.api_semantics_task(),
+                self.architecture_reasoning_task(),
                 self.api_documentation_task(),
                 self.architecture_documentation_task(),
-                self.example_generation_task(),
+                self.examples_generation_task(),
                 self.getting_started_task(),
-                self.evaluation_task(),
             ],
-            output_file='technical_documentation.json',
         )
 
     @crew
     def crew(self) -> Crew:
-        """Creates the DocGenerator crew with multi-agent architecture."""
+        """Seven-layer documentation system."""
         return Crew(
             agents=self.agents,
             tasks=self.tasks,
-            process=Process.sequential,  # Sequential processing ensures proper context flow
+            process=Process.sequential,
             verbose=True,
-            memory=False,  # Disabled to work with local Ollama models (no OpenAI embeddings needed)
+            memory=False,  # Disabled - requires OpenAI key for embeddings
         )

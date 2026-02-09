@@ -57,10 +57,71 @@ def run():
     }
 
     try:
-        result = DocGenerator().crew().kickoff(inputs=inputs)
+        crew_instance = DocGenerator().crew()
+        result = crew_instance.kickoff(inputs=inputs)
+        
+        # Save result to markdown file
+        output_file = Path('technical_documentation.md')
+        
+        # Priority: Use final_assembly_task output if available, otherwise aggregate
+        final_output = None
+        all_outputs = []
+        
+        for task in crew_instance.tasks:
+            task_output = task.output
+            if task_output:
+                output_text = None
+                if hasattr(task_output, 'raw'):
+                    output_text = task_output.raw
+                elif hasattr(task_output, 'result'):
+                    output_text = str(task_output.result)
+                elif isinstance(task_output, str):
+                    output_text = task_output
+                elif task_output:
+                    output_text = str(task_output)
+                
+                if output_text and output_text.strip():
+                    # Safely get task name
+                    task_name = "task"
+                    if task.config and isinstance(task.config, dict):
+                        task_name = task.config.get('description', 'task')[:50]
+                    elif hasattr(task, 'agent') and task.agent:
+                        task_name = str(task.agent)[:50]
+                    
+                    all_outputs.append((task_name, output_text))
+                    
+                    # Check if this is the final assembly task
+                    if task.config and isinstance(task.config, dict) and 'final_assembly' in str(task.config):
+                        final_output = output_text
+        
+        # Use final_assembly output if available, otherwise combine all
+        if final_output:
+            content = final_output
+        elif all_outputs:
+            content = f"""# Codebase Documentation
+
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+---
+
+"""
+            content += "\n\n---\n\n".join([out[1] for out in all_outputs])
+        else:
+            if hasattr(result, 'raw'):
+                content = result.raw
+            elif isinstance(result, str):
+                content = result
+            else:
+                content = str(result)
+        
+        # Write to markdown file
+        with open(output_file, 'w') as f:
+            f.write(content)
+        
         print(f"\n{'='*70}")
         print(f"Documentation generation completed!")
-        print(f"Output file: technical_documentation.json")
+        print(f"Output file: {output_file.absolute()}")
+        print(f"Tasks executed: {len(crew_instance.tasks)}")
         print(f"{'='*70}\n")
         return result
     except Exception as e:
