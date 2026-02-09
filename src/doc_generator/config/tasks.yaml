@@ -106,157 +106,181 @@ api_documentation_task:
 
 architecture_documentation_task:
   description: >
-    Create architecture overview documentation in JSON format.
-    Based on architecture analysis:
-    - Explain system design and organization
-    - Describe major components and their roles
-    - Document component relationships
-    - Explain architectural decisions
-    - Identify design patterns
+    Create architecture overview documentation in JSON format based on ACTUAL code analysis.
+    Analyze the codebase structure and extract real components, patterns, and data flow.
+    
     Output format: JSON object with structure:
     {
-      "summary": "Brief system overview",
+      "summary": "2-3 sentence description of what the system does",
       "components": [
         {
           "name": "ComponentName",
-          "description": "Component description",
-          "responsibilities": [...],
-          "dependencies": [...]
+          "description": "What this component does",
+          "responsibilities": ["responsibility1", "responsibility2"],
+          "dependencies": ["dependency1", "dependency2"]
         }
       ],
       "design_patterns": [
         {
           "pattern_name": "PatternName",
-          "where_used": "Location",
-          "rationale": "Why used"
+          "where_used": "Where it's used in the code",
+          "rationale": "Why this pattern was chosen"
         }
       ],
-      "data_flow": "Description of data flow"
+      "data_flow": "How data moves through the system"
     }
+    
+    Use ACTUAL data from the codebase - identify real classes, functions, and their relationships.
   expected_output: >
     Architecture documentation in JSON format with summary, components, design patterns, and data flow.
+    Must contain real component names and descriptions from the actual codebase.
   agent: architecture_doc_agent
 
 example_generation_task:
   description: >
     Generate practical usage examples for the documented APIs in JSON format.
     Create examples that:
-    - Are based on actual API structure
-    - Demonstrate real-world usage
-    - Are complete and runnable
-    - Cover common use cases
-    Never invent APIs or parameters - only use what exists.
+    - Are based on ACTUAL API structure from the codebase
+    - Demonstrate real-world usage patterns
+    - Are complete and runnable code
+    - Cover common use cases (basic usage, intermediate, advanced)
+    
     Output format: JSON array with structure:
     [
       {
-        "title": "Example Title",
+        "title": "Descriptive Title",
         "description": "What this example demonstrates",
-        "difficulty": "beginner|intermediate|advanced",
-        "code": "Complete runnable code",
-        "expected_output": "Expected output",
-        "setup_instructions": "Any setup needed"
+        "difficulty": "beginner | intermediate | advanced",
+        "code": "Complete runnable code with imports and usage",
+        "expected_output": "What the code produces when run",
+        "setup_instructions": "Installation or setup needed"
       }
     ]
+    
+    Use REAL APIs from the codebase - never invent or hallucinate.
   expected_output: >
-    Code examples in JSON format array.
+    Code examples in JSON format array with real, runnable examples based on actual APIs.
     Each example must include title, description, difficulty, code, expected_output, and setup_instructions.
   agent: example_generator_agent
 
 getting_started_task:
   description: >
-    Create a comprehensive getting started guide in JSON format.
-    Include:
-    - Project overview
-    - Prerequisites and setup instructions
-    - Quick start guide
-    - Basic usage examples
-    - Next steps and learning resources
-    Base everything on actual project structure and dependencies.
+    Create a comprehensive getting started guide in JSON format based on ACTUAL project structure.
+    Analyze the codebase to determine:
+    - What prerequisites are needed (Python version, dependencies)
+    - How to install the project
+    - A quick start code example
+    - Next steps for users
+    
     Output format: JSON object with structure:
     {
-      "prerequisites": ["requirement1", "requirement2"],
+      "prerequisites": ["Python 3.10+", "UV package manager"],
       "installation": "Installation command or instructions",
-      "quick_start": "Quick start code example",
+      "quick_start": "Complete runnable code example showing basic usage",
       "next_steps": ["step1", "step2", "step3"]
     }
+    
+    Use REAL project data - check pyproject.toml for dependencies, main.py for usage patterns.
   expected_output: >
-    Getting Started guide in JSON format with prerequisites, installation, quick_start, and next_steps.
+    Getting Started guide in JSON format with real prerequisites, installation, quick_start, and next_steps.
+    Based on actual project configuration and structure.
   agent: getting_started_agent
 
 evaluation_task:
   description: >
     Evaluate the quality of all generated documentation and generate metadata.
-    Measure:
-    - Coverage (% of code documented)
-    - Accuracy (verify against actual code)
-    - Consistency (same API described consistently)
-    - Completeness
-    Count:
-    - Total files analyzed
-    - Total functions documented
-    - Total classes documented
-    - Examples generated
+    Count and measure:
+    - Total files analyzed in the codebase
+    - Total functions documented across all modules
+    - Total classes documented across all modules
+    - Total examples generated
+    - QA issues found (coverage gaps, missing documentation, etc.)
+    
     Output format: JSON object with structure:
     {
-      "files_analyzed": number,
-      "total_functions_documented": number,
-      "total_classes_documented": number,
-      "examples_generated": number,
+      "files_analyzed": 10,
+      "total_functions_documented": 25,
+      "total_classes_documented": 12,
+      "examples_generated": 5,
       "qa_issues_found": [
         {
-          "severity": "info|warning|error",
-          "description": "Issue description",
-          "location": "Where issue was found"
+          "severity": "info | warning | error",
+          "description": "Description of the issue found",
+          "location": "File or component where issue was found"
         }
       ],
-      "generation_timestamp": "ISO timestamp"
+      "generation_timestamp": "2026-02-09T12:30:00Z"
     }
+    
+    Use ACTUAL counts from the codebase analysis - count real files, classes, functions.
   expected_output: >
-    Quality and metadata report in JSON format with counts, issues, and timestamp.
+    Quality and metadata report in JSON format with real counts, issues, and timestamp.
+    Numbers must reflect actual codebase analysis.
   agent: evaluation_agent
 
 final_documentation_assembly_task:
   description: >
-    CRITICAL: Extract and combine data from ALL previous task outputs into the EXACT JSON structure below.
-    Review the outputs from:
-    - architecture_documentation_task (for architecture_overview)
-    - api_documentation_task (for api_reference)
-    - example_generation_task (for examples)
-    - getting_started_task (for getting_started)
-    - evaluation_task (for metadata)
+    CRITICAL: You must CREATE the final documentation JSON by combining data from ALL previous tasks.
+    Use the tool outputs and context from:
+    - language_detection_task: Language statistics
+    - structural_analysis_task: Code structure (files, classes, functions)
+    - dependency_analysis_task: Dependencies
+    - api_documentation_task: API reference data
+    - architecture_documentation_task: Architecture overview
+    - example_generation_task: Usage examples
+    - getting_started_task: Getting started guide
+    - evaluation_task: Quality metrics
     
-    Extract the actual JSON data from each task output and assemble into this EXACT structure:
+    CREATE this exact JSON structure with REAL VALUES from the codebase:
+    
     {
       "documentation": {
         "table_of_contents": "# Project Documentation\n\n1. [Architecture Overview](#architecture-overview)\n2. [API Reference](#api-reference)\n3. [Usage Examples](#usage-examples)\n4. [Getting Started](#getting-started)",
         "architecture_overview": {
-          "summary": "extract from architecture_documentation_task output",
-          "components": "extract components array from architecture_documentation_task",
-          "design_patterns": "extract design_patterns array from architecture_documentation_task",
-          "data_flow": "extract data_flow string from architecture_documentation_task"
+          "summary": "A 2-3 sentence description of what this project does based on code analysis",
+          "components": [
+            {"name": "ComponentName", "description": "What this component does", "responsibilities": ["responsibility1"], "dependencies": []}
+          ],
+          "design_patterns": [
+            {"pattern_name": "PatternName", "where_used": "Where it's used", "rationale": "Why it was chosen"}
+          ],
+          "data_flow": "How data moves through the system"
         },
-        "api_reference": "extract api_references array from api_documentation_task (or api_reference key)",
-        "examples": "extract examples array from example_generation_task",
+        "api_reference": [
+          {
+            "module": "src/module_name",
+            "description": "Module description from code",
+            "classes": [{"name": "ClassName", "description": "Class description", "constructor_params": [], "methods": []}],
+            "functions": [],
+            "api_endpoints": []
+          }
+        ],
+        "examples": [
+          {"title": "Example Title", "description": "What this demonstrates", "difficulty": "beginner", "code": "code here", "expected_output": "output", "setup_instructions": "setup"}
+        ],
         "getting_started": {
-          "prerequisites": "extract from getting_started_task",
-          "installation": "extract from getting_started_task",
-          "quick_start": "extract from getting_started_task",
-          "next_steps": "extract from getting_started_task"
+          "prerequisites": ["requirement1", "requirement2"],
+          "installation": "install command",
+          "quick_start": "code example",
+          "next_steps": ["step1", "step2"]
         }
       },
       "metadata": {
-        "files_analyzed": "extract number from evaluation_task",
-        "total_functions_documented": "extract number from evaluation_task",
-        "total_classes_documented": "extract number from evaluation_task",
-        "examples_generated": "extract number from evaluation_task",
-        "qa_issues_found": "extract array from evaluation_task",
-        "generation_timestamp": "current ISO timestamp like 2025-02-09T10:57:35Z"
+        "files_analyzed": 10,
+        "total_functions_documented": 25,
+        "total_classes_documented": 12,
+        "total_methods_documented": 50,
+        "api_endpoints_found": 5,
+        "examples_generated": 3,
+        "qa_issues_found": [],
+        "generation_timestamp": "2026-02-09T13:06:00Z"
       }
     }
     
-    Output ONLY valid JSON matching this exact structure. Parse and extract from previous task outputs, do not invent data.
+    COUNT actual files, classes, functions, methods, API endpoints from the codebase.
+    Use REAL data - no placeholder text.
   expected_output: >
-    Complete technical documentation in valid JSON format matching the specified structure exactly.
-    Must be valid, parseable JSON with documentation and metadata sections.
-    Extract real data from previous task outputs - do not create placeholder data.
+    Complete technical documentation in VALID JSON format matching the specified structure exactly.
+    Must contain real counts, real component names, real API endpoints - NO placeholder text.
+    Output only valid JSON, nothing else.
   agent: api_doc_agent
