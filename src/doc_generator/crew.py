@@ -5,7 +5,7 @@ from typing import List
 import os
 from litellm.llms.custom_httpx.http_handler import HTTPHandler
 
-from doc_generator.tools import StructureExtractor, FileReader
+from doc_generator.tools import StructureExtractor, FileReader, GuardrailsTool
 
 
 # Store original post method
@@ -161,7 +161,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['documentation_assembler'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader()],
+            tools=[StructureExtractor(), FileReader(), GuardrailsTool()],
             verbose=True,
             allow_delegation=False,
         )
