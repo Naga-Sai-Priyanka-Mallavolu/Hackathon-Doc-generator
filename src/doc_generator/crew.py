@@ -5,7 +5,27 @@ from typing import List
 import os
 from litellm.llms.custom_httpx.http_handler import HTTPHandler
 
-from doc_generator.tools import StructureExtractor, FileReader, GuardrailsTool
+from doc_generator.tools import CodeAnalyzer, SharedMemoryReader, GuardrailsTool
+
+
+# ── Context Compression Helper ─────────────────────────────────────────
+def _compress_context(text: str, max_chars: int = 8000) -> str:
+    """
+    Compress context by truncating to max_chars and adding ellipsis.
+    Preserves structure by keeping first and last sections.
+    """
+    if len(text) <= max_chars:
+        return text
+    
+    # Keep first 60% and last 40% of the limit
+    first_part = int(max_chars * 0.6)
+    last_part = int(max_chars * 0.4)
+    
+    return (
+        text[:first_part] + 
+        "\n\n[... content truncated for context size ...]\n\n" + 
+        text[-(last_part):]
+    )
 
 
 # Store original post method
@@ -38,13 +58,23 @@ def _patched_post(self, *args, **kwargs):
 # Apply the patch
 HTTPHandler.post = _patched_post
 
+
 @CrewBase
 class DocGenerator():
-    """Seven-layer documentation system."""
+    """
+    Multi-agent documentation pipeline.
+
+    Architecture (matches the diagram):
+
+        Code Analyzer ──► shared memory
+              │
+              ├──► API Semantics Agent ──┐
+              │                          ├──► Examples Agent ──► Getting Started Agent ──► Document Assembler
+              └──► Architecture Agent ───┘
+    """
 
     agents: List[BaseAgent]
     tasks: List[Task]
-
 
     @property
     def ollama_cloud_llm(self) -> LLM:
@@ -61,195 +91,149 @@ class DocGenerator():
             api_key=cloud_api_key,
         )
 
-    # Layer 1: Ingestion & Structural Understanding
+    # ── Shared tool instances (created once, reused) ───────────────────
+    def _code_analyzer_tool(self) -> CodeAnalyzer:
+        return CodeAnalyzer()
+
+    def _memory_reader_tool(self) -> SharedMemoryReader:
+        return SharedMemoryReader()
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Agent 1 – Code Analyzer
+    # ═══════════════════════════════════════════════════════════════════
     @agent
-    def structural_scanner(self) -> Agent:
+    def code_analyzer(self) -> Agent:
         return Agent(
-            config=self.agents_config['structural_scanner'],
+            config=self.agents_config['code_analyzer'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader()],
+            tools=[self._code_analyzer_tool(), self._memory_reader_tool()],
             verbose=True,
             allow_delegation=False,
         )
 
-    @agent
-    def dependency_analyzer(self) -> Agent:
-        return Agent(
-            config=self.agents_config['dependency_analyzer'],
-            llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader()],
-            verbose=True,
-            allow_delegation=False,
-        )
-
-    # Layer 2: Semantic Understanding
+    # ═══════════════════════════════════════════════════════════════════
+    # Agent 2 – API Semantics Agent
+    # ═══════════════════════════════════════════════════════════════════
     @agent
     def api_semantics_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['api_semantics_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader()],
+            tools=[self._memory_reader_tool()],
             verbose=True,
             allow_delegation=False,
         )
 
+    # ═══════════════════════════════════════════════════════════════════
+    # Agent 3 – Architecture Reasoning Agent
+    # ═══════════════════════════════════════════════════════════════════
     @agent
     def architecture_reasoning_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['architecture_reasoning_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader()],
+            tools=[self._memory_reader_tool()],
             verbose=True,
             allow_delegation=False,
         )
 
-    # Layer 3: Documentation Assembly
-    @agent
-    def api_doc_agent(self) -> Agent:
-        return Agent(
-            config=self.agents_config['api_doc_agent'],
-            llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader()],
-            verbose=True,
-            allow_delegation=False,
-        )
-
-    @agent
-    def architecture_doc_agent(self) -> Agent:
-        return Agent(
-            config=self.agents_config['architecture_doc_agent'],
-            llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader()],
-            verbose=True,
-            allow_delegation=False,
-        )
-
+    # ═══════════════════════════════════════════════════════════════════
+    # Agent 4 – Examples Agent
+    # ═══════════════════════════════════════════════════════════════════
     @agent
     def example_generator_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['example_generator_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader()],
+            tools=[self._memory_reader_tool()],
             verbose=True,
             allow_delegation=False,
         )
 
+    # ═══════════════════════════════════════════════════════════════════
+    # Agent 5 – Getting Started Agent
+    # ═══════════════════════════════════════════════════════════════════
     @agent
     def getting_started_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['getting_started_agent'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader()],
+            tools=[self._memory_reader_tool()],
             verbose=True,
             allow_delegation=False,
         )
 
-    # Layer 6: Evaluation & Quality
+    # ═══════════════════════════════════════════════════════════════════
+    # Agent 6 – Document Assembler
+    # ═══════════════════════════════════════════════════════════════════
     @agent
-    def evaluation_agent(self) -> Agent:
+    def document_assembler(self) -> Agent:
         return Agent(
-            config=self.agents_config['evaluation_agent'],
+            config=self.agents_config['document_assembler'],
             llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader()],
+            tools=[self._memory_reader_tool(), GuardrailsTool()],
             verbose=True,
             allow_delegation=False,
         )
 
-    # Layer 4: Final Assembly
-    @agent
-    def documentation_assembler(self) -> Agent:
-        return Agent(
-            config=self.agents_config['documentation_assembler'],
-            llm=self.ollama_cloud_llm,
-            tools=[StructureExtractor(), FileReader(), GuardrailsTool()],
-            verbose=True,
-            allow_delegation=False,
-        )
+    # ═══════════════════════════════════════════════════════════════════
+    # Tasks  (sequential pipeline with context dependencies)
+    # ═══════════════════════════════════════════════════════════════════
 
-    # Tasks
+    # Task 1: Code Analyzer parses codebase → shared memory
     @task
-    def structural_scan_task(self) -> Task:
+    def code_analysis_task(self) -> Task:
         return Task(
-            config=self.tasks_config['structural_scan_task'],
-            agent=self.structural_scanner(),
+            config=self.tasks_config['code_analysis_task'],
+            agent=self.code_analyzer(),
         )
 
-    @task
-    def dependency_analysis_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['dependency_analysis_task'],
-            agent=self.dependency_analyzer(),
-            context=[self.structural_scan_task()],
-        )
-
+    # Task 2: API Semantics reads from shared memory (depends on Task 1)
     @task
     def api_semantics_task(self) -> Task:
         return Task(
             config=self.tasks_config['api_semantics_task'],
             agent=self.api_semantics_agent(),
-            context=[self.structural_scan_task()],
+            context=[self.code_analysis_task()],
         )
 
+    # Task 3: Architecture reads from shared memory (depends on Task 1)
     @task
     def architecture_reasoning_task(self) -> Task:
         return Task(
             config=self.tasks_config['architecture_reasoning_task'],
             agent=self.architecture_reasoning_agent(),
-            context=[self.structural_scan_task(), self.dependency_analysis_task()],
+            context=[self.code_analysis_task()],
         )
 
-    @task
-    def api_documentation_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['api_documentation_task'],
-            agent=self.api_doc_agent(),
-            context=[self.api_semantics_task()],
-        )
-
-    @task
-    def architecture_documentation_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['architecture_documentation_task'],
-            agent=self.architecture_doc_agent(),
-            context=[self.architecture_reasoning_task()],
-        )
-
+    # Task 4: Examples depends on API Semantics + Architecture
     @task
     def examples_generation_task(self) -> Task:
         return Task(
             config=self.tasks_config['examples_generation_task'],
             agent=self.example_generator_agent(),
-            context=[self.api_documentation_task()],
+            context=[self.api_semantics_task(), self.architecture_reasoning_task()],
         )
 
+    # Task 5: Getting Started depends on Architecture + Examples
     @task
     def getting_started_task(self) -> Task:
         return Task(
             config=self.tasks_config['getting_started_task'],
             agent=self.getting_started_agent(),
-            context=[self.architecture_documentation_task()],
+            context=[self.architecture_reasoning_task(), self.examples_generation_task()],
         )
 
+    # Task 6: Document Assembler depends on ALL previous tasks
     @task
-    def quality_evaluation_task(self) -> Task:
+    def document_assembly_task(self) -> Task:
         return Task(
-            config=self.tasks_config['quality_evaluation_task'],
-            agent=self.evaluation_agent(),
-            context=[self.api_documentation_task(), self.architecture_documentation_task()],
-        )
-
-    @task
-    def final_assembly_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['final_assembly_task'],
-            agent=self.documentation_assembler(),
+            config=self.tasks_config['document_assembly_task'],
+            agent=self.document_assembler(),
             context=[
-                self.structural_scan_task(),
-                self.dependency_analysis_task(),
+                self.code_analysis_task(),
                 self.api_semantics_task(),
                 self.architecture_reasoning_task(),
-                self.api_documentation_task(),
-                self.architecture_documentation_task(),
                 self.examples_generation_task(),
                 self.getting_started_task(),
             ],
@@ -257,11 +241,11 @@ class DocGenerator():
 
     @crew
     def crew(self) -> Crew:
-        """Seven-layer documentation system."""
+        """Multi-agent documentation pipeline."""
         return Crew(
             agents=self.agents,
             tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
-            memory=False,  # Disabled - requires OpenAI key for embeddings
+            memory=False,  # Using custom SharedMemory instead
         )

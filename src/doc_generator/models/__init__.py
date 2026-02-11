@@ -9,6 +9,7 @@ from .code_structure import (
     ProjectStructure,
     LanguageInfo,
 )
+from .documentation_output import DocumentationOutput
 
 __all__ = [
     "CodeStructure",
@@ -18,4 +19,5 @@ __all__ = [
     "FunctionInfo",
     "ProjectStructure",
     "LanguageInfo",
+    "DocumentationOutput",
 ]

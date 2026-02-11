@@ -1,189 +1,302 @@
-# Layer 1: Ingestion & Structural Understanding
-structural_scan_task:
+# ═══════════════════════════════════════════════════════════════════════
+# Task 1 – Code Analysis (populates shared memory)
+# ═══════════════════════════════════════════════════════════════════════
+code_analysis_task:
   description: >
-    CALL the Structure Extractor tool with folder_path="{folder_path}" to read ALL source files.
+    CALL the "Code Analyzer" tool with folder_path="{folder_path}".
 
-    Your goal is to create a ground truth map of the codebase.
+    This will parse the entire codebase, build AST trees for every source
+    file, detect the primary language, and store all parsed data in shared
+    memory.
 
-    Output JSON with:
-    - language_detected
-    - files (list with path, classes, functions, imports)
-    - entry_points (main classes, bootstrap files)
-    - public_interfaces (exported classes, public methods)
+    After the tool finishes, CALL the "Shared Memory Reader" tool with
+    key="summary" to verify what was stored.
+
+    Then output a brief summary of:
+    - Primary language detected
+    - Number of source files parsed
+    - Number of classes, functions, and imports found
+    - Entry points identified
+    - Config/build files found
   expected_output: >
-    Detailed JSON with language, all files, classes, functions, and imports.
-    Output ONLY valid JSON - nothing else.
-  agent: structural_scanner
+    A concise summary of the codebase analysis confirming that all data
+    has been stored in shared memory. Include counts of files, classes,
+    functions, imports, and entry points.
+  agent: code_analyzer
 
-dependency_analysis_task:
-  description: >
-    Using the structural scan, map all import/dependency relationships.
-
-    Output JSON with:
-    - modules (list with name, files, imports_from, imports_to)
-    - external_dependencies (third-party libraries)
-    - core_modules (most referenced modules)
-  expected_output: >
-    JSON with module dependencies, external libs, and core modules.
-    Output ONLY valid JSON - nothing else.
-  agent: dependency_analyzer
-
-# Layer 2: Semantic Understanding
+# ═══════════════════════════════════════════════════════════════════════
+# Task 2 – API Semantics Extraction
+# ═══════════════════════════════════════════════════════════════════════
 api_semantics_task:
   description: >
-    Using the structural analysis, infer purpose of all APIs.
+    CRITICAL: Extract ALL API endpoints. Do NOT miss any endpoints.
 
-    For each API endpoint, determine:
-    - purpose (what it does)
-    - parameters (what it accepts)
-    - returns (what it produces)
-    - confidence_score (0.0-1.0)
+    Use the "Shared Memory Reader" tool to read:
+    - key="classes" to get all class definitions with decorators
+    - key="functions" to get all function definitions
+    - key="annotations" to get all annotations/decorators (REST, HTTP, etc.)
+    - key="source_files" to read controller/route files directly
+    - key="ast_data" for full AST details
 
-    Output JSON with:
-    - api_semantics (list with endpoint, purpose, params, returns, confidence)
+    MANDATORY STEPS:
+    1. List ALL classes with @RestController, @Controller, @Service decorators
+    2. For EACH class, list ALL methods with @GetMapping, @PostMapping, 
+       @PutMapping, @DeleteMapping, @PatchMapping, @RequestMapping decorators
+    3. For EACH endpoint, extract:
+       - HTTP Method (GET, POST, PUT, DELETE, PATCH)
+       - Full URL path (base path + method path)
+       - Method description/purpose
+       - ALL parameters: @PathVariable, @RequestParam, @RequestBody with types
+       - Response: status codes, response body type/schema
+       - Security: @PreAuthorize, @Secured, authentication requirements
+       - Source file and line number
+
+    QUALITY CHECKS:
+    - Verify no endpoints are missing by cross-checking class count
+    - Ensure all path variables are documented
+    - Confirm all request/response types are specified
+    - Do NOT hallucinate endpoints that don't exist in code
+
+    Output format: MARKDOWN with summary table + detailed endpoint sections.
+    Keep output under 15,000 characters by using concise descriptions.
   expected_output: >
-    JSON with API purposes, parameters, returns, and confidence scores.
-    Output ONLY valid JSON - nothing else.
+    Complete MARKDOWN API reference with all endpoints, methods, paths,
+    parameters, responses, and security requirements. Every endpoint must
+    be documented with full details. Output ONLY valid MARKDOWN.
   agent: api_semantics_agent
 
+# ═══════════════════════════════════════════════════════════════════════
+# Task 3 – Architecture Analysis (runs in parallel with Task 2)
+# ═══════════════════════════════════════════════════════════════════════
 architecture_reasoning_task:
   description: >
-    Using the structural and dependency analysis, explain the architecture.
+    CRITICAL: Document the complete system architecture. Do NOT miss layers or components.
 
-    Output JSON with:
-    - architectural_patterns (MVC, microservices, etc.)
-    - component_roles (controller, service, repository, etc.)
-    - data_flow (how requests travel through the system)
-    - module_relationships (how modules connect)
+    Use the "Shared Memory Reader" tool to read:
+    - key="ast_data" for full AST details of every file
+    - key="imports" for all import relationships and dependencies
+    - key="classes" for class hierarchy and inheritance
+    - key="functions" for all functions and their purposes
+    - key="config_files" for build/config files (pom.xml, application.yml, etc.)
+    - key="entry_points" for application entry points and main classes
+    - key="packages" for build tool, dependencies, and versions
+    - key="file_tree" for the complete directory structure
+
+    MANDATORY ANALYSIS:
+    1. **Identify ALL layers/components:**
+       - Controllers/Routes (HTTP entry points)
+       - Services/Business logic
+       - Repositories/Data access
+       - Models/Entities/DTOs
+       - Utilities/Helpers
+       - Configuration classes
+       - Security/Authentication components
+       - Database/ORM setup
+
+    2. **Document relationships:**
+       - Controller → Service dependencies
+       - Service → Repository dependencies
+       - Model/Entity definitions
+       - Dependency injection setup
+       - Configuration beans
+
+    3. **Create Mermaid diagram showing:**
+       - All identified components as boxes
+       - Arrows showing dependencies
+       - Clear layer separation
+       - External integrations (DB, APIs, etc.)
+
+    4. **Architecture narrative covering:**
+       - Overall pattern (MVC, Layered, Microservices, etc.)
+       - Each layer's responsibility
+       - Request flow from entry to response
+       - Data persistence strategy
+       - Security mechanisms
+       - Design patterns observed
+
+    QUALITY CHECKS:
+    - Verify all classes are accounted for in architecture
+    - Ensure no components are missing
+    - Confirm all dependencies are shown
+    - Do NOT hallucinate components not in code
+
+    Output format: MARKDOWN with Mermaid diagram + detailed sections.
+    Keep under 12,000 characters by focusing on essential architecture.
   expected_output: >
-    JSON with architecture patterns, components, data flow, and relationships.
-    Output ONLY valid JSON - nothing else.
+    MARKDOWN architecture document with Mermaid diagram showing all
+    components and their relationships, plus detailed narrative of system
+    design, layers, data flow, and patterns. Output ONLY valid MARKDOWN.
   agent: architecture_reasoning_agent
 
-# Layer 3: Documentation Assembly
-api_documentation_task:
-  description: >
-    Using the API semantics, generate structured API reference in MARKDOWN format.
-
-    For each endpoint include:
-    - Method and full path
-    - Description
-    - Parameters (name, type, required, description)
-    - Request body (if applicable)
-    - Response (status codes, body schema)
-    - Security (roles required)
-    - Example curl command
-
-    Output format: Clean MARKDOWN with tables and code blocks.
-  expected_output: >
-    MARKDOWN API reference with all endpoints, parameters, examples.
-    Output ONLY valid MARKDOWN - nothing else.
-  agent: api_doc_agent
-
-architecture_documentation_task:
-  description: >
-    Using the architecture reasoning, generate architecture overview in MARKDOWN format.
-
-    Include:
-    - System overview
-    - Component diagram (text-based)
-    - Module descriptions
-    - Data flow explanation
-    - Design patterns used
-
-    Output format: Clean MARKDOWN with headers and diagrams.
-  expected_output: >
-    MARKDOWN architecture overview with components, flow, and patterns.
-    Output ONLY valid MARKDOWN - nothing else.
-  agent: architecture_doc_agent
-
+# ═══════════════════════════════════════════════════════════════════════
+# Task 4 – Examples Generation (depends on API Semantics)
+# ═══════════════════════════════════════════════════════════════════════
 examples_generation_task:
   description: >
-    Using the API documentation, generate runnable code examples in MARKDOWN format.
+    CRITICAL: Generate examples for EVERY API endpoint. Do NOT skip any endpoints.
 
-    For each major API include:
-    - Prerequisites (what to import/install)
-    - Setup code (configuration)
-    - Example usage (with realistic data)
-    - Expected output
+    Using the API reference from the API Semantics Agent (provided as context)
+    and the shared memory data, generate practical examples.
 
-    Output format: MARKDOWN with fenced code blocks.
+    Use the "Shared Memory Reader" tool with key="source_files" to read
+    actual controller code for request/response model details.
+
+    MANDATORY FOR EACH ENDPOINT:
+    1. **curl command** — Complete, copy-pastable, with all required headers
+    2. **Request body** — Sample JSON with realistic, valid data
+       - Include all required fields
+       - Show correct data types
+       - Use realistic values (not "test" or "foo")
+    3. **Success response** — Sample JSON response with HTTP status code
+       - Show actual response structure
+       - Include all response fields
+       - Correct status code (200, 201, 204, etc.)
+    4. **Error response** — At least one error scenario
+       - Show error response structure
+       - Include error status code (400, 401, 404, 500, etc.)
+       - Explain the error condition
+    5. **Required headers** — Content-Type, Authorization, custom headers
+       - Show exact header names and values
+       - Explain authentication requirements
+
+    QUALITY CHECKS:
+    - Verify examples for ALL endpoints from API reference
+    - Ensure curl commands are executable
+    - Confirm all required parameters are shown
+    - Validate JSON syntax in examples
+    - Do NOT hallucinate examples for missing endpoints
+
+    Use placeholder values for secrets: "your-token-here", "your-api-key".
+    Output format: MARKDOWN with fenced code blocks. Keep under 10,000 chars.
   expected_output: >
-    MARKDOWN with runnable examples for all major APIs.
-    Output ONLY valid MARKDOWN - nothing else.
+    MARKDOWN document with practical, runnable examples for EVERY API endpoint
+    including curl commands, request/response bodies, headers, and error cases.
+    Output ONLY valid MARKDOWN. Keep under 10,000 characters.
   agent: example_generator_agent
 
+# ═══════════════════════════════════════════════════════════════════════
+# Task 5 – Getting Started Guide (depends on Architecture)
+# ═══════════════════════════════════════════════════════════════════════
 getting_started_task:
   description: >
-    Generate getting started guide in MARKDOWN format.
+    CRITICAL: Create a complete Getting Started guide. Do NOT omit setup steps.
 
-    Include:
-    - Prerequisites
-    - Installation steps
-    - Configuration
-    - Quick start example
-    - Environment variables
-    - Running the application
+    Using the architecture overview from the Architecture Agent (provided as
+    context) and the shared memory data, generate a comprehensive setup guide.
 
-    Output format: Clean MARKDOWN tutorial.
+    Use the "Shared Memory Reader" tool to read:
+    - key="packages" for build tool (Maven, Gradle, npm, etc.), dependencies
+    - key="config_files" for configuration files (pom.xml, application.yml, etc.)
+    - key="entry_points" for main class and application startup
+    - key="language" for primary language and version requirements
+    - key="source_files" for any setup scripts or documentation
+
+    MANDATORY SECTIONS (in order):
+    1. **Project Overview** — What this project does (1-2 paragraphs)
+       - Core purpose and functionality
+       - Technology stack summary
+    
+    2. **Prerequisites** — Required software with SPECIFIC versions
+       - Java/Node/Python version (e.g., "Java 11 or higher")
+       - Build tool (Maven 3.6+, Gradle 7.0+, etc.)
+       - Database (MySQL 8.0, PostgreSQL 12+, etc.)
+       - Other tools (Git, Docker, etc.)
+    
+    3. **Installation** — Step-by-step instructions
+       - Clone repository with git command
+       - Install dependencies (mvn install, npm install, etc.)
+       - Build project (mvn clean package, etc.)
+       - Any additional setup steps
+    
+    4. **Configuration** — How to configure the application
+       - Environment variables needed (list with examples)
+       - Configuration files to modify (application.yml, .env, etc.)
+       - Database setup (create DB, run migrations, etc.)
+       - API keys or credentials setup
+    
+    5. **Running the Application** — How to start it
+       - Exact command to run (java -jar, npm start, etc.)
+       - Expected output when running successfully
+       - Port and URL where it runs (http://localhost:8080)
+    
+    6. **Running Tests** — How to execute tests
+       - Command to run all tests
+       - Command to run specific test suites
+       - Expected test results
+    
+    7. **Quick Start** — First API call
+       - Link to Examples document
+       - One simple curl example to verify setup
+    
+    8. **Project Structure** — Directory layout
+       - Brief explanation of main directories
+       - Where to find controllers, services, models, etc.
+    
+    9. **Troubleshooting** — Common issues and solutions
+       - Port already in use
+       - Database connection issues
+       - Build failures
+       - Other common problems
+
+    QUALITY CHECKS:
+    - Verify all prerequisites are listed with versions
+    - Ensure installation steps are complete and in order
+    - Confirm all configuration requirements are documented
+    - Check that commands are exact and executable
+    - Do NOT hallucinate setup steps not in actual code
+
+    Output format: MARKDOWN tutorial. Keep under 8,000 characters by being
+    concise but complete in each section.
   expected_output: >
-    MARKDOWN getting started guide with setup and quick start.
-    Output ONLY valid MARKDOWN - nothing else.
+    Complete MARKDOWN Getting Started guide with all sections: overview,
+    prerequisites with versions, installation steps, configuration, running
+    instructions, tests, quick start, project structure, and troubleshooting.
+    Output ONLY valid MARKDOWN. Keep under 8,000 characters.
   agent: getting_started_agent
 
-# Layer 6: Evaluation & Quality
-quality_evaluation_task:
+# ═══════════════════════════════════════════════════════════════════════
+# Task 6 – Document Assembly (final task, depends on all previous)
+# ═══════════════════════════════════════════════════════════════════════
+document_assembly_task:
   description: >
-    Evaluate the generated documentation.
+    You have the outputs from ALL previous agents as context.
+    Assemble them into the final documentation suite.
 
-    Report:
-    - coverage_percent (what % of code is documented)
-    - accuracy_score (how accurate vs source)
-    - missing_endpoints (APIs not documented)
-    - confidence_assessment (overall quality)
-    - improvement_recommendations
+    CONTEXT COMPRESSION STRATEGY:
+    - Upstream agents have already limited their output to 8k-15k chars each
+    - You will receive summaries, not full raw data
+    - Focus on assembling these summaries cleanly with section markers
+    - Do NOT expand or regenerate content — use what you receive as-is
 
-    Output JSON with all metrics.
+    Produce a SINGLE output with clear section separators using this
+    EXACT format:
+
+    ===SECTION: README.md===
+    [Getting Started Agent output — project overview + setup guide]
+
+    ===SECTION: API_REFERENCE.md===
+    [API Semantics Agent output — complete API reference]
+
+    ===SECTION: ARCHITECTURE.md===
+    [Architecture Agent output — system design + Mermaid diagram]
+
+    ===SECTION: EXAMPLES.md===
+    [Examples Agent output — code samples for all endpoints]
+
+    ===SECTION: architecture.mermaid===
+    [Extract ONLY the raw Mermaid diagram code from the Architecture
+    output — no markdown fences, just the Mermaid syntax]
+
+    RULES:
+    - Use the content from each agent as provided — do NOT expand or regenerate
+    - Add a brief table of contents to README.md linking to other docs
+    - Add cross-reference links between documents (e.g., "See [API Reference](API_REFERENCE.md)")
+    - Ensure every section separator is on its own line
+    - The architecture.mermaid section should contain ONLY valid Mermaid syntax
+    - Keep your total output under 50,000 characters
   expected_output: >
-    JSON with coverage, accuracy, missing endpoints, and recommendations.
-    Output ONLY valid JSON - nothing else.
-  agent: evaluation_agent
-
-# Layer 4: Final Assembly
-final_assembly_task:
-  description: >
-    Combine all previous task outputs into a comprehensive final MARKDOWN document.
-
-    Use the context from all previous tasks to create:
-
-    1. **Analysis Summary**
-       - Brief overview of what was analyzed
-       - Key findings from structural scan and dependency analysis
-
-    2. **Architecture Reasoning**
-       - Detailed architectural patterns and component roles
-       - How modules relate and data flows through the system
-       - Design patterns identified
-
-    3. **API Reference**
-       - All endpoints with methods, paths, parameters, security
-       - Include examples from the example_generator_agent output
-
-    4. **Usage Examples**
-       - Practical code examples showing how to use the APIs
-       - Include curl commands and request/response examples
-
-    5. **Getting Started Guide**
-       - Prerequisites, installation, configuration
-       - Quick start example to run the application
-
-    Output format: Clean MARKDOWN with proper headers, tables, and code blocks.
-  expected_output: >
-    Comprehensive MARKDOWN document with:
-    - Analysis Summary section
-    - Architecture Reasoning section (detailed)
-    - API Reference section
-    - Usage Examples section
-    - Getting Started Guide section
-    Output ONLY valid MARKDOWN - nothing else.
-  agent: documentation_assembler
+    A single document containing all five sections separated by
+    ===SECTION: filename=== markers. Each section contains the
+    documentation from each agent.
+    Output ONLY valid MARKDOWN with section separators. Keep under 50k chars.
+  agent: document_assembler

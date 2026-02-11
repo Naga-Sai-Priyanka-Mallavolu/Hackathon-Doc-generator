@@ -1,0 +1,329 @@
+classDiagram
+    %% Direction and layout
+    direction TB
+
+    %% Application Entry Points
+    class RestApiApplication {
+        +main()
+        @SpringBootApplication
+        @EnableCaching
+        @EnableScheduling
+    }
+    
+    class SchedulingApplication {
+        +main()
+        @SpringBootApplication
+    }
+    
+    class SpringBatchApplication {
+        +main()
+        @SpringBootApplication
+    }
+
+    %% Gateway Layer - Controllers
+    class UserController {
+        +getUser() GET /users/{id}
+        +getUsers() GET /users
+        +createUser() POST /users
+        +updateUser() PUT /users/{id}
+        +deleteUser() DELETE /users/{id}
+        +getUserOrders()
+        +getUserProducts()
+    }
+    
+    class OrderController {
+        +getOrder() GET /orders/{id}
+        +getOrders() GET /orders
+        +createOrder() POST /orders
+        +updateOrder() PUT /orders/{id}
+        +deleteOrder() DELETE /orders/{id}
+        +cancelOrder() PATCH /orders/{id}/cancel
+    }
+
+    class ProductController {
+        +getProduct() GET /products/{id}
+        +getProducts() GET /products
+        +createProduct() POST /products
+        +updateProduct() PUT /products/{id}
+        +deleteProduct() DELETE /products/{id}
+        +getProductsByCategory()
+    }
+
+    %% Gateway Layer - Services
+    class UserService {
+        +getUserById()
+        +getAllUsers()
+        +createUser()
+        +updateUser()
+        +deleteUser()
+        +validateUser()
+    }
+    
+    class OrderService {
+        +getOrderById()
+        +getAllOrders()
+        +createOrder()
+        +updateOrder()
+        +deleteOrder()
+        +processOrder()
+    }
+
+    class ProductService {
+        +getProductById()
+        +getAllProducts()
+        +createProduct()
+        +updateProduct()
+        +deleteProduct()
+        +validateProduct()
+    }
+
+    %% Gateway Layer - Repositories
+    class UserRepository {
+        +findById()
+        +findByEmail()
+        +existsByEmail()
+        +deleteByEmail()
+    }
+
+    class OrderRepository {
+        +findById()
+        +findByUserId()
+        +findByProductId()
+        +findAllByStatus()
+    }
+
+    class ProductRepository {
+        +findById()
+        +findByName()
+        +existsByName()
+        +deleteByName()
+    }
+
+    %% Models & DTOs
+    class User {
+        +id, username, email, password, createdAt
+        @Entity
+        @Table(name='users')
+    }
+
+    class Order {
+        +id, userId, productId, quantity, totalAmount, status, createdAt
+        @Entity
+        @Table(name='orders')
+    }
+
+    class Product {
+        +id, name, description, price, stock, createdAt
+        @Entity
+        @Table(name='products')
+    }
+
+    %% Integration Layer
+    class ExternalApiGateway {
+        +callExternalApi()
+    }
+
+    class InternalApiGateway {
+        +callInternalApi()
+    }
+
+    class MessageQueuePublisher {
+        +publish()
+        @Retryable
+    }
+
+    class MessageQueueConsumer {
+        +consumeMessage()
+        @KafkaListener
+    }
+
+    %% Configuration
+    class SecurityConfig {
+        +configure(HttpSecurity)
+        +passwordEncoder()
+        +authenticationManager()
+        @Configuration
+        @EnableWebSecurity
+    }
+
+    class DatabaseConfig {
+        +entityManagerFactory()
+        @Configuration
+        @EnableJpaRepositories
+    }
+
+    class JpaConfig {
+        +hibernateProperties()
+        @Configuration
+    }
+
+    class CorsConfig {
+        +corsFilter()
+        @Configuration
+    }
+
+    class CacheConfig {
+        +cacheManager()
+        @Configuration
+        @EnableCaching
+    }
+
+    class RestTemplateConfig {
+        +restTemplateBuilder()
+        @Configuration
+    }
+
+    class WebMvcConfig {
+        +addInterceptors()
+        @Configuration
+        @EnableWebMvc
+    }
+
+    %% Security Components
+    class JwtTokenProvider {
+        +generateToken()
+        +validateToken()
+        +getUserIdFromToken()
+        +getExpiration()
+        @Component
+    }
+
+    class JwtAuthenticationFilter {
+        +doFilterInternal()
+        @Component
+        @Order(FIRST)
+    }
+
+    %% AOP & Utilities
+    class LoggingAspect {
+        +logMethodEntry()
+        +logMethodExit()
+        +logException()
+        @Component
+        @Aspect
+    }
+
+    class RateLimiter {
+        +allowRequest()
+        @Component
+        @Aspect
+    }
+
+    class ResponseWrapper {
+        +wrap()
+        +wrapList()
+        @Component
+    }
+
+    class UserTransformer {
+        +toEntity()
+        +toDto()
+        @Component
+    }
+
+    class OrderTransformer {
+        +toEntity()
+        +toDto()
+        @Component
+    }
+
+    class ProductTransformer {
+        +toEntity()
+        +toDto()
+        @Component
+    }
+
+    %% Exception Handling
+    class RestApiException {
+        +errorCode, message, status
+    }
+
+    class RestApiExceptionHandler {
+        +handleRestApiException()
+        +handleException()
+        +handleValidationException()
+        @ControllerAdvice
+    }
+
+    %% Scheduling Module
+    class ScheduledTask {
+        +id, name, cron, enabled, createdAt
+        @Entity
+    }
+
+    class ScheduledTaskRepository {
+        +findById()
+        +findByEnabled()
+    }
+
+    class ScheduledTaskService {
+        +executeScheduledTask()
+        @Service
+        @Scheduled
+    }
+
+    class ScheduledTaskController {
+        +getScheduledTasks() GET /scheduled-tasks
+        +enableScheduledTask()
+        +disableScheduledTask()
+    }
+
+    %% Spring Batch Components
+    class CustomerReader {
+        +read()
+    }
+
+    class CustomerProcessor {
+        +process()
+    }
+
+    class CustomerWriter {
+        +write()
+    }
+
+    %% Dependencies
+    UserController --> UserService : inject
+    OrderController --> OrderService : inject
+    ProductController --> ProductService : inject
+
+    UserService --> UserRepository : inject
+    OrderService --> OrderRepository : inject
+    ProductService --> ProductRepository : inject
+
+    UserController --> ResponseWrapper : wrap
+    OrderController --> ResponseWrapper : wrap
+    ProductController --> ResponseWrapper : wrap
+
+    JwtAuthenticationFilter ..> SecurityConfig : config
+    JwtTokenProvider --> SecurityConfig : inject
+    UserService --> JwtTokenProvider : inject
+    UserService --> JwtAuthenticationFilter : depend
+
+    ExternalApiGateway --> InternalApiGateway : may call
+    MessageQueuePublisher ..> ExternalApiGateway : publish async
+
+    LoggingAspect .->.* : aspect weaving
+    RateLimiter .->.* : aspect weaving
+
+    ScheduledTaskController --> ScheduledTaskService : inject
+    ScheduledTaskService --> ScheduledTaskRepository : inject
+
+    CustomerReader .->.* : batch item read
+    CustomerProcessor .->.* : batch item process
+    CustomerWriter .->.* : batch item write
+
+    %% External Systems
+    class "MySQL Database" as DB
+    class "Kafka" as Kafka
+    class "Redis Cache" as Redis
+    class "External APIs" as ExternalAPI
+
+    UserRepository --o DB : JPA/Hibernate
+    OrderRepository --o DB : JPA/Hibernate
+    ProductRepository --o DB : JPA/Hibernate
+    ScheduledTaskRepository --o DB : JPA/Hibernate
+
+    MessageQueuePublisher --> Kafka : publish
+    MessageQueueConsumer --> Kafka : subscribe
+
+    CacheConfig --> Redis : cache storage
