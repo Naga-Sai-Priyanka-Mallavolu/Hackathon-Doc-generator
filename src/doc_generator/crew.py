@@ -3,7 +3,7 @@ from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from typing import List
 import os
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+# from litellm.llms.custom_httpx.http_handler import HTTPHandler
 
 from doc_generator.tools import CodeAnalyzer, SharedMemoryReader, GuardrailsTool
 
@@ -29,34 +29,34 @@ def _compress_context(text: str, max_chars: int = 8000) -> str:
 
 
 # Store original post method
-_original_post = HTTPHandler.post
+# _original_post = HTTPHandler.post
 
-def _patched_post(self, *args, **kwargs):
-    """Patch HTTPHandler.post to add Authorization header for Ollama Cloud"""
-    api_key = os.getenv('OLLAMA_API_KEY', '').strip()
+# def _patched_post(self, *args, **kwargs):
+#     """Patch HTTPHandler.post to add Authorization header for Ollama Cloud"""
+#     api_key = os.getenv('OLLAMA_API_KEY', '').strip()
     
-    # Try to get URL from various possible locations
-    url = kwargs.get('url', '') or kwargs.get('api_base', '') or (args[0] if args else '')
+#     # Try to get URL from various possible locations
+#     url = kwargs.get('url', '') or kwargs.get('api_base', '') or (args[0] if args else '')
     
-    # Check if this is an Ollama Cloud request
-    is_ollama_cloud = api_key and ('ollama.com' in str(url) or hasattr(self, 'base_url') and 'ollama.com' in str(getattr(self, 'base_url', '')))
+#     # Check if this is an Ollama Cloud request
+#     is_ollama_cloud = api_key and ('ollama.com' in str(url) or hasattr(self, 'base_url') and 'ollama.com' in str(getattr(self, 'base_url', '')))
     
-    # If this is an Ollama Cloud request and we have an API key
-    if is_ollama_cloud:
-        # Ensure headers exist
-        if 'headers' not in kwargs:
-            kwargs['headers'] = {}
-        elif kwargs['headers'] is None:
-            kwargs['headers'] = {}
+#     # If this is an Ollama Cloud request and we have an API key
+#     if is_ollama_cloud:
+#         # Ensure headers exist
+#         if 'headers' not in kwargs:
+#             kwargs['headers'] = {}
+#         elif kwargs['headers'] is None:
+#             kwargs['headers'] = {}
         
-        # Add Authorization header if not already present
-        if 'Authorization' not in kwargs['headers']:
-            kwargs['headers']['Authorization'] = f'Bearer {api_key}'
+#         # Add Authorization header if not already present
+#         if 'Authorization' not in kwargs['headers']:
+#             kwargs['headers']['Authorization'] = f'Bearer {api_key}'
     
-    return _original_post(self, *args, **kwargs)
+#     return _original_post(self, *args, **kwargs)
 
-# Apply the patch
-HTTPHandler.post = _patched_post
+# # Apply the patch
+# HTTPHandler.post = _patched_post
 
 
 @CrewBase
@@ -76,20 +76,20 @@ class DocGenerator():
     agents: List[BaseAgent]
     tasks: List[Task]
 
-    @property
-    def ollama_cloud_llm(self) -> LLM:
-        """Create and return Ollama Cloud LLM instance"""
-        cloud_base_url = os.getenv('OLLAMA_CLOUD_BASE_URL', 'https://ollama.com')
-        cloud_api_key = os.getenv('OLLAMA_API_KEY', '').strip()
-        model_name = os.getenv('OLLAMA_CLOUD_MODEL', 'qwen3-coder-next:latest').replace('-cloud', '')
+    # @property
+    # def ollama_cloud_llm(self) -> LLM:
+    #     """Create and return Ollama Cloud LLM instance"""
+    #     cloud_base_url = os.getenv('OLLAMA_CLOUD_BASE_URL', 'https://ollama.com')
+    #     cloud_api_key = os.getenv('OLLAMA_API_KEY', '').strip()
+    #     model_name = os.getenv('OLLAMA_CLOUD_MODEL', 'qwen3-coder-next:latest').replace('-cloud', '')
         
-        os.environ['OLLAMA_API_KEY'] = cloud_api_key
+    #     os.environ['OLLAMA_API_KEY'] = cloud_api_key
         
-        return LLM(
-            model=f'ollama/{model_name}',
-            base_url=cloud_base_url,
-            api_key=cloud_api_key,
-        )
+    #     return LLM(
+    #         model=f'ollama/{model_name}',
+    #         base_url=cloud_base_url,
+    #         api_key=cloud_api_key,
+    #     )
 
     # ── Shared tool instances (created once, reused) ───────────────────
     def _code_analyzer_tool(self) -> CodeAnalyzer:
@@ -105,7 +105,7 @@ class DocGenerator():
     def code_analyzer(self) -> Agent:
         return Agent(
             config=self.agents_config['code_analyzer'],
-            llm=self.ollama_cloud_llm,
+            # llm=self.ollama_cloud_llm,
             tools=[self._code_analyzer_tool(), self._memory_reader_tool()],
             verbose=True,
             allow_delegation=False,
@@ -118,7 +118,7 @@ class DocGenerator():
     def api_semantics_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['api_semantics_agent'],
-            llm=self.ollama_cloud_llm,
+            # llm=self.ollama_cloud_llm,
             tools=[self._memory_reader_tool()],
             verbose=True,
             allow_delegation=False,
@@ -131,7 +131,7 @@ class DocGenerator():
     def architecture_reasoning_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['architecture_reasoning_agent'],
-            llm=self.ollama_cloud_llm,
+            # llm=self.ollama_cloud_llm,
             tools=[self._memory_reader_tool()],
             verbose=True,
             allow_delegation=False,
@@ -144,7 +144,7 @@ class DocGenerator():
     def example_generator_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['example_generator_agent'],
-            llm=self.ollama_cloud_llm,
+            # llm=self.ollama_cloud_llm,
             tools=[self._memory_reader_tool()],
             verbose=True,
             allow_delegation=False,
@@ -157,7 +157,7 @@ class DocGenerator():
     def getting_started_agent(self) -> Agent:
         return Agent(
             config=self.agents_config['getting_started_agent'],
-            llm=self.ollama_cloud_llm,
+            # llm=self.ollama_cloud_llm,
             tools=[self._memory_reader_tool()],
             verbose=True,
             allow_delegation=False,
@@ -170,7 +170,7 @@ class DocGenerator():
     def document_assembler(self) -> Agent:
         return Agent(
             config=self.agents_config['document_assembler'],
-            llm=self.ollama_cloud_llm,
+            # llm=self.ollama_cloud_llm,
             tools=[self._memory_reader_tool(), GuardrailsTool()],
             verbose=True,
             allow_delegation=False,

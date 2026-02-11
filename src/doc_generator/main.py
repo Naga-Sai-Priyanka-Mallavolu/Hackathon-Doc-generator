@@ -24,6 +24,10 @@ from doc_generator.crew import DocGenerator
 from doc_generator.tools.shared_memory import SharedMemory
 from doc_generator.models import DocumentationOutput
 
+import subprocess
+import tempfile
+import shutil
+
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
 
@@ -38,7 +42,35 @@ DEFAULT_FILES = {
     "architecture.mermaid": "graph TD\n  A[No diagram generated]",
 }
 
+GIT_URL_REGEX = re.compile(
+    r"^(https://github\.com/|git@github\.com:).+/.+(.git)?$"
+)
 
+def _is_git_url(value: str) -> bool:
+    return bool(GIT_URL_REGEX.match(value))
+
+
+def _clone_repo(repo_url: str) -> str:
+    """
+    Clone a public Git repository into a temporary directory.
+    Returns the local folder path.
+    """
+    temp_dir = tempfile.mkdtemp(prefix="docgen_repo_")
+
+    try:
+        subprocess.run(
+            ["git", "clone", "--depth", "1", repo_url, temp_dir],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return temp_dir
+    except subprocess.CalledProcessError:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise Exception(
+            "Failed to clone repository. Ensure the repo is public and the URL is correct."
+        )
+        
 def _split_sections(raw: str) -> dict[str, str]:
     """
     Split the Document Assembler output by ===SECTION: filename=== markers.
@@ -130,16 +162,24 @@ def run():
 
     # Clear shared memory from any previous run
     SharedMemory().clear()
+    cloned_repo_path = None
 
     # Prompt user for folder path
     while True:
         folder_path = input(
-            "Enter the path to the codebase folder (or press Enter for current directory): "
+            "Enter local folder path OR public GitHub URL (or press Enter for current directory): "
         ).strip()
 
         if not folder_path:
             folder_path = os.getcwd()
             print(f"Using current directory: {folder_path}")
+            break
+        
+        if _is_git_url(folder_path):
+            print("Detected public Git repository. Cloning...")
+            cloned_repo_path = _clone_repo(folder_path)
+            folder_path = cloned_repo_path
+            print(f"Repository cloned to: {folder_path}")
             break
 
         folder = Path(folder_path)
@@ -353,7 +393,13 @@ def run_with_trigger():
     except json.JSONDecodeError:
         raise Exception("Invalid JSON payload provided as argument")
 
-    folder_path = trigger_payload.get("folder_path", os.getcwd())
+    folder_path = trigger_payload.get("git_url") or trigger_payload.get("folder_path", os.getcwd())
+
+    if _is_git_url(folder_path):
+        print("Cloning repository from trigger payload...")
+        cloned_repo_path = _clone_repo(folder_path)
+        folder_path = cloned_repo_path
+
     folder = Path(folder_path)
 
     if not folder.exists() or not folder.is_dir():
