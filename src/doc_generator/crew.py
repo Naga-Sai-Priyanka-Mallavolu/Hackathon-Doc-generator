@@ -114,6 +114,9 @@ class DocGenerator():
 
     def _memory_reader_tool(self) -> SharedMemoryReader:
         return SharedMemoryReader()
+    
+    def _guardrails_tool(self) -> GuardrailsTool:
+        return GuardrailsTool()
 
     # ═══════════════════════════════════════════════════════════════════
     # Agent 1 – Code Analyzer
@@ -123,7 +126,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['code_analyzer'],
             # llm=self.ollama_cloud_llm,
-            tools=[self._code_analyzer_tool(), self._memory_reader_tool()],
+            tools=[self._code_analyzer_tool(), self._memory_reader_tool(), self._guardrails_tool()],
             verbose=True,
             allow_delegation=False,
         )
@@ -136,7 +139,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['api_semantics_agent'],
             # llm=self.ollama_cloud_llm,
-            tools=[self._memory_reader_tool()],
+            tools=[self._memory_reader_tool(), self._guardrails_tool()],
             verbose=True,
             allow_delegation=False,
         )
@@ -149,7 +152,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['architecture_reasoning_agent'],
             # llm=self.ollama_cloud_llm,
-            tools=[self._memory_reader_tool()],
+            tools=[self._memory_reader_tool(), self._guardrails_tool()],
             verbose=True,
             allow_delegation=False,
         )
@@ -162,7 +165,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['example_generator_agent'],
             # llm=self.ollama_cloud_llm,
-            tools=[self._memory_reader_tool()],
+            tools=[self._memory_reader_tool(), self._guardrails_tool()],
             verbose=True,
             allow_delegation=False,
         )
@@ -175,7 +178,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['getting_started_agent'],
             # llm=self.ollama_cloud_llm,
-            tools=[self._memory_reader_tool()],
+            tools=[self._memory_reader_tool(), self._guardrails_tool()],
             verbose=True,
             allow_delegation=False,
         )
