@@ -87,7 +87,8 @@ DEFAULT_FILES = {
     "API_REFERENCE.md": "# API Reference\n\nDocumentation was not generated for this section.",
     "ARCHITECTURE.md": "# Architecture\n\nDocumentation was not generated for this section.",
     "EXAMPLES.md": "# Examples\n\nDocumentation was not generated for this section.",
-    "architecture.mermaid": "graph TD\n  A[No diagram generated]",
+    "TEST_DOCUMENTATION.md": "# Test Documentation\n\nNo test files were found in the project.",
+    "architecture.mermaid": "graph TD\n    A[No diagram generated]",
 }
 
 GIT_URL_REGEX = re.compile(
@@ -264,14 +265,13 @@ def _run_evaluation_traced(output: str, folder_path: str, attempt: int = 1) -> d
             print(f"   ✗ {metric.name}: failed — {e}")
 
     # ── D: Update metric objects with scaled scores before upload ────────
-    # Confident AI shows the raw metric.score, so we need to update it
+    # Confident AI expects 0-1 scale, so convert our 0-10 scores
     for metric in metrics:
         key = metric.name.lower().replace(" ", "_")
         if key in results:
-            # Use our 0-10 score directly for Confident AI display
-            scaled_score = results[key]
-            # Multiply by 10 so Confident AI shows the 0-10 scale
-            metric.score = scaled_score
+            # Convert 0-10 scale to 0-1 scale for Confident AI
+            raw_score = results[key]
+            metric.score = raw_score / 10.0  # Convert to 0-1 scale
     
     # ── E: Upload to Confident AI Testing → Test Runs ─────────────────
     try:
@@ -370,6 +370,7 @@ def _write_final_docs(
         api_reference=sections.get("API_REFERENCE.md", DEFAULT_FILES["API_REFERENCE.md"]),
         architecture=sections.get("ARCHITECTURE.md", DEFAULT_FILES["ARCHITECTURE.md"]),
         examples=sections.get("EXAMPLES.md", DEFAULT_FILES["EXAMPLES.md"]),
+        test_documentation=sections.get("TEST_DOCUMENTATION.md", DEFAULT_FILES["TEST_DOCUMENTATION.md"]),
         architecture_diagram=sections.get(
             "architecture.mermaid", DEFAULT_FILES["architecture.mermaid"]
         ),
@@ -391,6 +392,7 @@ def _write_final_docs(
     print(f"  ├── API_REFERENCE.md")
     print(f"  ├── ARCHITECTURE.md")
     print(f"  ├── EXAMPLES.md")
+    print(f"  ├── TEST_DOCUMENTATION.md")
     print(f"  └── diagrams/")
     print(f"      └── architecture.mermaid")
     print(f"\nCombined: {combined.absolute()}")

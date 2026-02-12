@@ -3,18 +3,16 @@
 from .shared_memory import SharedMemory
 from .code_analyzer import CodeAnalyzer
 from .memory_reader import SharedMemoryReader
-from .structure_extractor import StructureExtractor, FileReader
-from .language_detector import LanguageDetector
-from .dependency_analyzer import DependencyAnalyzer
 from .guardrails import GuardrailsTool
+from .config_parser import ConfigParserTool
+from .test_analyzer import TestAnalyzerTool, TestDocsTool
 
 __all__ = [
     "SharedMemory",
     "CodeAnalyzer",
     "SharedMemoryReader",
-    "StructureExtractor",
-    "FileReader",
-    "LanguageDetector",
-    "DependencyAnalyzer",
     "GuardrailsTool",
+    "ConfigParserTool",
+    "TestAnalyzerTool",
+    "TestDocsTool",
 ]

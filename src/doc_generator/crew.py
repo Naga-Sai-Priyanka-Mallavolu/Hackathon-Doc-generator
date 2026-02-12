@@ -11,7 +11,7 @@ from pathlib import Path
 # from litellm.llms.custom_httpx.http_handler import HTTPHandler
 from deepeval.integrations.crewai import instrument_crewai
 from deepeval.test_case import LLMTestCase
-from doc_generator.tools import CodeAnalyzer, SharedMemoryReader, GuardrailsTool
+from doc_generator.tools import CodeAnalyzer, SharedMemoryReader, GuardrailsTool, ConfigParserTool, TestAnalyzerTool, TestDocsTool
 from doc_generator.geval_metrics import (
     create_faithfulness_metric,
     create_toxicity_metric,
@@ -117,6 +117,15 @@ class DocGenerator():
     
     def _guardrails_tool(self) -> GuardrailsTool:
         return GuardrailsTool()
+    
+    def _config_parser_tool(self) -> ConfigParserTool:
+        return ConfigParserTool()
+    
+    def _test_analyzer_tool(self) -> TestAnalyzerTool:
+        return TestAnalyzerTool()
+    
+    def _test_docs_tool(self) -> TestDocsTool:
+        return TestDocsTool()
 
     # ═══════════════════════════════════════════════════════════════════
     # Agent 1 – Code Analyzer
@@ -178,7 +187,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['getting_started_agent'],
             # llm=self.ollama_cloud_llm,
-            tools=[self._memory_reader_tool(), self._guardrails_tool()],
+            tools=[self._memory_reader_tool(), self._guardrails_tool(), self._config_parser_tool()],
             verbose=True,
             allow_delegation=False,
         )
@@ -191,7 +200,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['document_assembler'],
             # llm=self.ollama_cloud_llm,
-            tools=[self._memory_reader_tool(), GuardrailsTool()],
+            tools=[self._memory_reader_tool(), self._guardrails_tool(), self._test_docs_tool()],
             verbose=True,
             allow_delegation=False,
         )

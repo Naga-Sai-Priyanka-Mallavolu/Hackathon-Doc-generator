@@ -18,6 +18,11 @@ code_analysis_task:
     - Number of classes, functions, and imports found
     - Entry points identified
     - Config/build files found
+    
+    GUARDRAINS VALIDATION:
+    - Use the "guardrails" tool to validate your summary before finalizing
+    - Call: guardrails.validate_output(content="your_summary_output", output_type="markdown")
+    - If any issues are found, fix them before returning final output
   expected_output: >
     A concise summary of the codebase analysis confirming that all data
     has been stored in shared memory. Include counts of files, classes,
@@ -56,6 +61,12 @@ api_semantics_task:
     - Ensure all path variables are documented
     - Confirm all request/response types are specified
     - Do NOT hallucinate endpoints that don't exist in code
+    
+    GUARDRAINS VALIDATION:
+    - Use the "guardrails" tool to validate your output before finalizing
+    - Call: guardrails.validate_output(content="your_markdown_output", output_type="markdown")
+    - If any issues are found, fix them before returning final output
+    - Ensure no sensitive data (API keys, passwords) is exposed
 
     Output format: MARKDOWN with summary table + detailed endpoint sections.
     Keep output under 15,000 characters by using concise descriptions.
@@ -119,6 +130,12 @@ architecture_reasoning_task:
     - Ensure no components are missing
     - Confirm all dependencies are shown
     - Do NOT hallucinate components not in code
+    
+    GUARDRAINS VALIDATION:
+    - Use the "guardrails" tool to validate your output before finalizing
+    - Call: guardrails.validate_output(content="your_markdown_output", output_type="markdown")
+    - If any issues are found, fix them before returning final output
+    - Check for hallucination risks in architecture descriptions
 
     Output format: MARKDOWN with Mermaid diagram + detailed sections.
     Keep under 12,000 characters by focusing on essential architecture.
@@ -165,6 +182,12 @@ examples_generation_task:
     - Confirm all required parameters are shown
     - Validate JSON syntax in examples
     - Do NOT hallucinate examples for missing endpoints
+    
+    GUARDRAINS VALIDATION:
+    - Use the "guardrails" tool to validate your output before finalizing
+    - Call: guardrails.validate_output(content="your_markdown_output", output_type="markdown")
+    - Use guardrails.redact() to ensure no real credentials are exposed
+    - If any issues are found, fix them before returning final output
 
     Use placeholder values for secrets: "your-token-here", "your-api-key".
     Output format: MARKDOWN with fenced code blocks. Keep under 10,000 chars.
@@ -190,6 +213,13 @@ getting_started_task:
     - key="entry_points" for main class and application startup
     - key="language" for primary language and version requirements
     - key="source_files" for any setup scripts or documentation
+    
+    Use the "config_parser" tool with folder_path="{folder_path}" to:
+    - Extract detailed configuration from all config files
+    - Get exact dependency versions and requirements
+    - Identify build tools and their versions
+    - Find environment variables and ports needed
+    - Determine if Docker or database is required
 
     MANDATORY SECTIONS (in order):
     1. **Project Overview** — What this project does (1-2 paragraphs)
@@ -244,6 +274,12 @@ getting_started_task:
     - Confirm all configuration requirements are documented
     - Check that commands are exact and executable
     - Do NOT hallucinate setup steps not in actual code
+    
+    GUARDRAINS VALIDATION:
+    - Use the "guardrails" tool to validate your output before finalizing
+    - Call: guardrails.validate_output(content="your_markdown_output", output_type="markdown")
+    - Use guardrails.redact() to ensure no real credentials are exposed
+    - If any issues are found, fix them before returning final output
 
     Output format: MARKDOWN tutorial. Keep under 8,000 characters by being
     concise but complete in each section.
@@ -268,6 +304,11 @@ document_assembly_task:
     - Focus on assembling these summaries cleanly with section markers
     - Do NOT expand or regenerate content — use what you receive as-is
 
+    Use the "test_docs_generator" tool with folder_path="{folder_path}" to:
+    - Generate test documentation (tool automatically checks if tests exist)
+    - If no test files are found, it will create a "No tests found" section
+    - If tests exist, it will generate comprehensive test documentation
+    
     Produce a SINGLE output with clear section separators using this
     EXACT format:
 
@@ -283,6 +324,12 @@ document_assembly_task:
     ===SECTION: EXAMPLES.md===
     [Examples Agent output — code samples for all endpoints]
 
+    ===SECTION: TEST_DOCUMENTATION.md===
+    [Use the "test_docs_generator" tool with folder_path="{folder_path}" to generate
+    comprehensive test documentation. This tool will automatically detect if tests exist
+    and create appropriate documentation. If no tests are found, it will create a
+    "No tests found" section.]
+
     ===SECTION: architecture.mermaid===
     [Extract ONLY the raw Mermaid diagram code from the Architecture
     output — no markdown fences, just the Mermaid syntax]
@@ -294,9 +341,17 @@ document_assembly_task:
     - Ensure every section separator is on its own line
     - The architecture.mermaid section should contain ONLY valid Mermaid syntax
     - Keep your total output under 50,000 characters
+    
+    GUARDRAINS VALIDATION:
+    - Use the "guardrails" tool to validate your final output before returning
+    - Call: guardrails.validate_output(content="your_full_document_output", output_type="markdown")
+    - Use guardrails.check_quality() with expected_sections=["README", "API Reference", "Architecture", "Examples", "Test Documentation"]
+    - If any issues are found, fix them before returning final output
+    - Ensure no sensitive data is exposed in any section
   expected_output: >
-    A single document containing all five sections separated by
+    A single document containing all six sections separated by
     ===SECTION: filename=== markers. Each section contains the
-    documentation from each agent.
-    Output ONLY valid MARKDOWN with section separators. Keep under 50k chars.
+    documentation from each agent. Include TEST_DOCUMENTATION.md
+    section with test analysis if tests exist.
+    Output ONLY valid MARKDOWN with section separators. Keep under 60k chars.
   agent: document_assembler
