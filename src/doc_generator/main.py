@@ -192,15 +192,9 @@ def _run_crew_traced(inputs: dict) -> tuple:
     return result, crew_instance, raw_output
 
 
-def _run_evaluation_traced(output: str, folder_path: str, attempt: int = 1) -> dict:
+def _run_evaluation_traced(output: str, folder_path: str, attempt: int = 1, silent: bool = False) -> dict:
     """
     Evaluate documentation quality and upload to Confident AI.
-
-    Data destinations:
-    ──────────────────────────────────────────────────────────────
-    deepeval.evaluate()       → Testing → Test Runs tab
-    local JSON file           → .deepeval/eval_results/
-    ──────────────────────────────────────────────────────────────
     """
     session_id = str(uuid.uuid4())[:8]
 
@@ -210,14 +204,12 @@ def _run_evaluation_traced(output: str, folder_path: str, attempt: int = 1) -> d
         "Output should be accurate, complete, non-toxic, and efficient",
     ]
 
-    # ── B: Build test case ─────────────────────────────────────────
     test_case = LLMTestCase(
         input=f"Generate documentation for: {folder_path}",
         actual_output=output,
         context=context,
     )
 
-    # ── C: Create metrics and measure locally first ─────────────────
     metrics = [
         create_faithfulness_metric(),
         create_toxicity_metric(),
@@ -227,42 +219,32 @@ def _run_evaluation_traced(output: str, folder_path: str, attempt: int = 1) -> d
         create_execution_efficiency_metric(),
     ]
 
-    # Measure locally to get actual scores (0-1 range)
-    print(f"\n   Measuring 6 metrics locally...")
+    if not silent: print(f"\n   Measuring 6 metrics locally...")
     results = {}
     for metric in metrics:
         try:
             metric.measure(test_case)
             raw_score = metric.score
             
-            # GEval can return different scales:
-            # - 0-1 scale (e.g., 0.96): multiply by 10
-            # - 0-10 scale (e.g., 10.0): use as-is
-            # - 0-100 scale (e.g., 96): divide by 10
             if raw_score <= 1:
-                # 0-1 scale, convert to 0-10
                 score = round(raw_score * 10, 2)
             elif raw_score <= 10:
-                # Already 0-10 scale
                 score = round(raw_score, 2)
             else:
-                # 0-100 scale, convert to 0-10
                 score = round(raw_score / 10, 2)
             
-            # Ensure score is within 0-10 range
-            if score > 10:
-                score = 10.0
-            elif score < 0:
-                score = 0.0
+            if score > 10: score = 10.0
+            elif score < 0: score = 0.0
             
             key = metric.name.lower().replace(" ", "_")
             results[key] = score
-            status = "✓" if metric.is_successful() else "✗"
-            print(f"   {status} {metric.name}: {score:.1f}/10")
+            if not silent:
+                status = "✓" if metric.is_successful() else "✗"
+                print(f"   {status} {metric.name}: {score:.1f}/10")
         except Exception as e:
             key = metric.name.lower().replace(" ", "_")
             results[key] = 0.0
-            print(f"   ✗ {metric.name}: failed — {e}")
+            if not silent: print(f"   ✗ {metric.name}: failed — {e}")
 
     # ── D: Update metric objects with scaled scores before upload ────────
     # Confident AI expects 0-1 scale, so convert our 0-10 scores
@@ -273,21 +255,20 @@ def _run_evaluation_traced(output: str, folder_path: str, attempt: int = 1) -> d
             raw_score = results[key]
             metric.score = raw_score / 10.0  # Convert to 0-1 scale
     
-    # ── E: Upload to Confident AI Testing → Test Runs ─────────────────
     try:
         evaluate(
             test_cases=[test_case],
             metrics=metrics,
             identifier=f"{METRIC_COLLECTION}-attempt-{attempt}-{session_id}",
+            show_indicator=not silent, # Suppress indicator
         )
-        print(f"   ✓ Uploaded → app.confident-ai.com → Testing → Test Runs")
+        if not silent: print(f"   ✓ Uploaded → app.confident-ai.com → Testing → Test Runs")
     except Exception as e:
-        print(f"   ✗ evaluate() upload failed: {e}")
+        if not silent: print(f"   ✗ evaluate() upload failed: {e}")
 
     avg_score = sum(results.values()) / len(results) if results else 0.0
-    print(f"\n   Average score: {avg_score:.2f}/10")
+    if not silent: print(f"\n   Average score: {avg_score:.2f}/10")
 
-    # ── E: Local audit trail ───────────────────────────────────────
     eval_dir = Path(".deepeval/eval_results")
     eval_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -301,7 +282,7 @@ def _run_evaluation_traced(output: str, folder_path: str, attempt: int = 1) -> d
             "results": results,
             "average_score": avg_score,
         }, f, indent=2)
-    print(f"   ✓ Local copy: {eval_file}")
+    if not silent: print(f"   ✓ Local copy: {eval_file}")
 
     return {"results": results, "avg_score": avg_score, "session_id": session_id}
 
@@ -461,8 +442,7 @@ def run():
 
         # ── 2: Evaluate ────────────────────────────────────────────────
         attempt = 1
-        print(f"\n[2] Evaluating (attempt {attempt})...")
-        eval_result = _run_evaluation_traced(raw_output, folder_path, attempt=attempt)
+        eval_result = _run_evaluation_traced(raw_output, folder_path, attempt=attempt, silent=True)
         avg_score = eval_result["avg_score"]
 
         best_output, best_score = raw_output, avg_score
@@ -494,15 +474,10 @@ def run():
             raw_output, avg_score = best_output, best_score
 
         # ── 4: Summary ─────────────────────────────────────────────────
-        print(f"\n{'='*70}")
-        print(f"Final Score: {avg_score:.2f}/10 after {attempt} attempt(s)")
         if avg_score >= MIN_EVAL_SCORE:
-            print(f"✓ PASSED")
-            print(f"  → app.confident-ai.com → Observability → Traces")
-            print(f"  → app.confident-ai.com → Testing → Test Runs")
+            print(f"   ✓ Pipeline Complete (Score: {avg_score:.2f}/10)")
         else:
-            print(f"✗ BELOW THRESHOLD — using best available output")
-        print(f"{'='*70}\n")
+            print(f"   ! Documentation Generated below threshold ({avg_score:.2f}/10)")
 
         # ── 5: Write docs ──────────────────────────────────────────────
         sections = _extract_sections_from_crew(crew_instance, raw_output)

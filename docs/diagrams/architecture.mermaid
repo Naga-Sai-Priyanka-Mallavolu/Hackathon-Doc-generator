@@ -1,329 +1,89 @@
-classDiagram
-    %% Direction and layout
-    direction TB
+%% Layered architecture of the Documentation Generator
+graph LR
+    %% ==== API Layer ====
+    subgraph API [API Layer]
+        API_Server["FastAPI (api_server.py)"]
+        API_Route_Git["/generate-from-git"]
+        API_Route_Path["/generate-from-path"]
+    end
 
-    %% Application Entry Points
-    class RestApiApplication {
-        +main()
-        @SpringBootApplication
-        @EnableCaching
-        @EnableScheduling
-    }
-    
-    class SchedulingApplication {
-        +main()
-        @SpringBootApplication
-    }
-    
-    class SpringBatchApplication {
-        +main()
-        @SpringBootApplication
-    }
+    %% ==== Service / Orchestration Layer ====
+    subgraph Service [Service (Crew) Layer]
+        DocGenCrew["DocGenerator Crew (src/doc_generator/crew.py)"]
+        ArchitectureAgent["Architecture Reasoning Agent"]
+        APISemanticsAgent["API Semantics Agent"]
+        ExamplesAgent["Examples Generation Agent"]
+        GettingStartedAgent["Getting‑Started Agent"]
+        DocumentAssembler["Document Assembler Agent"]
+    end
 
-    %% Gateway Layer - Controllers
-    class UserController {
-        +getUser() GET /users/{id}
-        +getUsers() GET /users
-        +createUser() POST /users
-        +updateUser() PUT /users/{id}
-        +deleteUser() DELETE /users/{id}
-        +getUserOrders()
-        +getUserProducts()
-    }
-    
-    class OrderController {
-        +getOrder() GET /orders/{id}
-        +getOrders() GET /orders
-        +createOrder() POST /orders
-        +updateOrder() PUT /orders/{id}
-        +deleteOrder() DELETE /orders/{id}
-        +cancelOrder() PATCH /orders/{id}/cancel
-    }
+    %% ==== Tool / Utility Layer ====
+    subgraph Tools [Tool / Utility Layer]
+        CodeAnalyzer["CodeAnalyzer Tool (tools/code_analyzer.py)"]
+        DependencyAnalyzer["DependencyAnalyzer Tool (tools/dependency_analyzer.py)"]
+        LanguageDetector["LanguageDetector Tool (tools/language_detector.py)"]
+        StructureExtractor["StructureExtractor Tool (tools/structure_extractor.py)"]
+        GuardrailsTool["Guardrails Tool (tools/guardrails.py)"]
+        SharedMemoryTool["SharedMemory (tools/shared_memory.py)"]
+        PostgreSQLStorage["PostgreSQLStorage Tool (tools/postgres_storage.py)"]
+    end
 
-    class ProductController {
-        +getProduct() GET /products/{id}
-        +getProducts() GET /products
-        +createProduct() POST /products
-        +updateProduct() PUT /products/{id}
-        +deleteProduct() DELETE /products/{id}
-        +getProductsByCategory()
-    }
+    %% ==== Model Layer ====
+    subgraph Models [Model Layer]
+        DocumentationOutput["DocumentationOutput (models/documentation_output.py)"]
+        CodeStructure["CodeStructure (models/code_structure.py)"]
+    end
 
-    %% Gateway Layer - Services
-    class UserService {
-        +getUserById()
-        +getAllUsers()
-        +createUser()
-        +updateUser()
-        +deleteUser()
-        +validateUser()
-    }
-    
-    class OrderService {
-        +getOrderById()
-        +getAllOrders()
-        +createOrder()
-        +updateOrder()
-        +deleteOrder()
-        +processOrder()
-    }
+    %% ==== Data Layer ====
+    subgraph Data [Data Layer]
+        PostgreSQL["PostgreSQL DB (docgen table)"]
+    end
 
-    class ProductService {
-        +getProductById()
-        +getAllProducts()
-        +createProduct()
-        +updateProduct()
-        +deleteProduct()
-        +validateProduct()
-    }
+    %% ==== External Integrations ====
+    subgraph External [External Services]
+        GitRepo["Git Repository"]
+        ConfidentAI["Confident AI (metrics & tracing)"]
+    end
 
-    %% Gateway Layer - Repositories
-    class UserRepository {
-        +findById()
-        +findByEmail()
-        +existsByEmail()
-        +deleteByEmail()
-    }
+    %% ==== Connections ====
+    API_Server --> API_Route_Git
+    API_Server --> API_Route_Path
+    API_Route_Git -.-> GitRepo
+    API_Route_Path -.-> (Local FS)
 
-    class OrderRepository {
-        +findById()
-        +findByUserId()
-        +findByProductId()
-        +findAllByStatus()
-    }
+    API_Route_Git -->|trigger| DocGenCrew
+    API_Route_Path -->|trigger| DocGenCrew
 
-    class ProductRepository {
-        +findById()
-        +findByName()
-        +existsByName()
-        +deleteByName()
-    }
+    DocGenCrew --> CodeAnalyzer
+    DocGenCrew --> DependencyAnalyzer
+    DocGenCrew --> LanguageDetector
+    DocGenCrew --> StructureExtractor
+    DocGenCrew --> GuardrailsTool
+    DocGenCrew --> PostgreSQLStorage
+    DocGenCrew --> ArchitectureAgent
+    DocGenCrew --> APISemanticsAgent
+    DocGenCrew --> ExamplesAgent
+    DocGenCrew --> GettingStartedAgent
+    DocGenCrew --> DocumentAssembler
 
-    %% Models & DTOs
-    class User {
-        +id, username, email, password, createdAt
-        @Entity
-        @Table(name='users')
-    }
+    CodeAnalyzer --> SharedMemoryTool
+    DependencyAnalyzer --> SharedMemoryTool
+    LanguageDetector --> SharedMemoryTool
+    StructureExtractor --> SharedMemoryTool
+    GuardrailsTool --> SharedMemoryTool
+    PostgreSQLStorage --> PostgreSQL
 
-    class Order {
-        +id, userId, productId, quantity, totalAmount, status, createdAt
-        @Entity
-        @Table(name='orders')
-    }
+    SharedMemoryTool --> PostgreSQL
+    DocumentationOutput -->|writes| docs_folder["/docs (static files)"]
+    DocumentationOutput --> Models
 
-    class Product {
-        +id, name, description, price, stock, createdAt
-        @Entity
-        @Table(name='products')
-    }
+    DocGenCrew ..> ConfidentAI : logs / evaluates
+    PostgreSQLStorage ..> ConfidentAI : metric upload
+    GuardrailsTool ..> ConfidentAI : validation results
 
-    %% Integration Layer
-    class ExternalApiGateway {
-        +callExternalApi()
-    }
-
-    class InternalApiGateway {
-        +callInternalApi()
-    }
-
-    class MessageQueuePublisher {
-        +publish()
-        @Retryable
-    }
-
-    class MessageQueueConsumer {
-        +consumeMessage()
-        @KafkaListener
-    }
-
-    %% Configuration
-    class SecurityConfig {
-        +configure(HttpSecurity)
-        +passwordEncoder()
-        +authenticationManager()
-        @Configuration
-        @EnableWebSecurity
-    }
-
-    class DatabaseConfig {
-        +entityManagerFactory()
-        @Configuration
-        @EnableJpaRepositories
-    }
-
-    class JpaConfig {
-        +hibernateProperties()
-        @Configuration
-    }
-
-    class CorsConfig {
-        +corsFilter()
-        @Configuration
-    }
-
-    class CacheConfig {
-        +cacheManager()
-        @Configuration
-        @EnableCaching
-    }
-
-    class RestTemplateConfig {
-        +restTemplateBuilder()
-        @Configuration
-    }
-
-    class WebMvcConfig {
-        +addInterceptors()
-        @Configuration
-        @EnableWebMvc
-    }
-
-    %% Security Components
-    class JwtTokenProvider {
-        +generateToken()
-        +validateToken()
-        +getUserIdFromToken()
-        +getExpiration()
-        @Component
-    }
-
-    class JwtAuthenticationFilter {
-        +doFilterInternal()
-        @Component
-        @Order(FIRST)
-    }
-
-    %% AOP & Utilities
-    class LoggingAspect {
-        +logMethodEntry()
-        +logMethodExit()
-        +logException()
-        @Component
-        @Aspect
-    }
-
-    class RateLimiter {
-        +allowRequest()
-        @Component
-        @Aspect
-    }
-
-    class ResponseWrapper {
-        +wrap()
-        +wrapList()
-        @Component
-    }
-
-    class UserTransformer {
-        +toEntity()
-        +toDto()
-        @Component
-    }
-
-    class OrderTransformer {
-        +toEntity()
-        +toDto()
-        @Component
-    }
-
-    class ProductTransformer {
-        +toEntity()
-        +toDto()
-        @Component
-    }
-
-    %% Exception Handling
-    class RestApiException {
-        +errorCode, message, status
-    }
-
-    class RestApiExceptionHandler {
-        +handleRestApiException()
-        +handleException()
-        +handleValidationException()
-        @ControllerAdvice
-    }
-
-    %% Scheduling Module
-    class ScheduledTask {
-        +id, name, cron, enabled, createdAt
-        @Entity
-    }
-
-    class ScheduledTaskRepository {
-        +findById()
-        +findByEnabled()
-    }
-
-    class ScheduledTaskService {
-        +executeScheduledTask()
-        @Service
-        @Scheduled
-    }
-
-    class ScheduledTaskController {
-        +getScheduledTasks() GET /scheduled-tasks
-        +enableScheduledTask()
-        +disableScheduledTask()
-    }
-
-    %% Spring Batch Components
-    class CustomerReader {
-        +read()
-    }
-
-    class CustomerProcessor {
-        +process()
-    }
-
-    class CustomerWriter {
-        +write()
-    }
-
-    %% Dependencies
-    UserController --> UserService : inject
-    OrderController --> OrderService : inject
-    ProductController --> ProductService : inject
-
-    UserService --> UserRepository : inject
-    OrderService --> OrderRepository : inject
-    ProductService --> ProductRepository : inject
-
-    UserController --> ResponseWrapper : wrap
-    OrderController --> ResponseWrapper : wrap
-    ProductController --> ResponseWrapper : wrap
-
-    JwtAuthenticationFilter ..> SecurityConfig : config
-    JwtTokenProvider --> SecurityConfig : inject
-    UserService --> JwtTokenProvider : inject
-    UserService --> JwtAuthenticationFilter : depend
-
-    ExternalApiGateway --> InternalApiGateway : may call
-    MessageQueuePublisher ..> ExternalApiGateway : publish async
-
-    LoggingAspect .->.* : aspect weaving
-    RateLimiter .->.* : aspect weaving
-
-    ScheduledTaskController --> ScheduledTaskService : inject
-    ScheduledTaskService --> ScheduledTaskRepository : inject
-
-    CustomerReader .->.* : batch item read
-    CustomerProcessor .->.* : batch item process
-    CustomerWriter .->.* : batch item write
-
-    %% External Systems
-    class "MySQL Database" as DB
-    class "Kafka" as Kafka
-    class "Redis Cache" as Redis
-    class "External APIs" as ExternalAPI
-
-    UserRepository --o DB : JPA/Hibernate
-    OrderRepository --o DB : JPA/Hibernate
-    ProductRepository --o DB : JPA/Hibernate
-    ScheduledTaskRepository --o DB : JPA/Hibernate
-
-    MessageQueuePublisher --> Kafka : publish
-    MessageQueueConsumer --> Kafka : subscribe
-
-    CacheConfig --> Redis : cache storage
+    style API fill:#f9f,stroke:#333,stroke-width:2px
+    style Service fill:#bbf,stroke:#333,stroke-width:2px
+    style Tools fill:#bfb,stroke:#333,stroke-width:2px
+    style Models fill:#ffb,stroke:#333,stroke-width:2px
+    style Data fill:#ffe,stroke:#333,stroke-width:2px
+    style External fill:#ddd,stroke:#333,stroke-width:2px

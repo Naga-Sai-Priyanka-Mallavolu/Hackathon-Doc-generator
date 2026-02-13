@@ -1,538 +1,219 @@
-# API Gateway System Architecture
+# System Architecture Overview
 
-## Overview
+The **Documentation Generator** is a Python‑based, multi‑agent system that can be invoked either via a **CLI** (`src/doc_generator/main.py`) or a **REST API** (`api_server.py`).  
+It follows a **layered, service‑oriented architecture** built around a **CrewAI crew** (the “service layer”) that orchestrates a family of reusable **tools** (utility layer). Persistence is handled by a **PostgreSQL** table (`docgen`), accessed through a simple storage tool. External integrations include **Git** (for cloning repositories) and **Confident AI** (metrics & tracing).
 
-This is a **multi-module Spring Boot microservice system** implementing a layered architecture with clear separation of concerns. The system consists of three primary modules: `api-gateway` (main application), `api-scheduling`, and `api-springbatch`. It follows a **strict layered architecture** with a **MVC pattern** in the API layer, enhanced with cross-cutting concerns for security, logging, caching, and message processing.
+Below is a complete component map, data‑flow description, and the design patterns used throughout the code base.
 
----
+---  
 
-## Architecture Diagram
+## Mermaid Architecture Diagram  
 
 ```mermaid
-classDiagram
-    %% Direction and layout
-    direction TB
+%% Layered architecture of the Documentation Generator
+graph LR
+    %% ==== API Layer ====
+    subgraph API [API Layer]
+        API_Server["FastAPI (api_server.py)"]
+        API_Route_Git["/generate-from-git"]
+        API_Route_Path["/generate-from-path"]
+    end
 
-    %% Application Entry Points
-    class RestApiApplication {
-        +main()
-        @SpringBootApplication
-        @EnableCaching
-        @EnableScheduling
-    }
-    
-    class SchedulingApplication {
-        +main()
-        @SpringBootApplication
-    }
-    
-    class SpringBatchApplication {
-        +main()
-        @SpringBootApplication
-    }
+    %% ==== Service / Orchestration Layer ====
+    subgraph Service [Service (Crew) Layer]
+        DocGenCrew["DocGenerator Crew (src/doc_generator/crew.py)"]
+        ArchitectureAgent["Architecture Reasoning Agent"]
+        APISemanticsAgent["API Semantics Agent"]
+        ExamplesAgent["Examples Generation Agent"]
+        GettingStartedAgent["Getting‑Started Agent"]
+        DocumentAssembler["Document Assembler Agent"]
+    end
 
-    %% Gateway Layer - Controllers
-    class UserController {
-        +getUser() GET /users/{id}
-        +getUsers() GET /users
-        +createUser() POST /users
-        +updateUser() PUT /users/{id}
-        +deleteUser() DELETE /users/{id}
-        +getUserOrders()
-        +getUserProducts()
-    }
-    
-    class OrderController {
-        +getOrder() GET /orders/{id}
-        +getOrders() GET /orders
-        +createOrder() POST /orders
-        +updateOrder() PUT /orders/{id}
-        +deleteOrder() DELETE /orders/{id}
-        +cancelOrder() PATCH /orders/{id}/cancel
-    }
+    %% ==== Tool / Utility Layer ====
+    subgraph Tools [Tool / Utility Layer]
+        CodeAnalyzer["CodeAnalyzer Tool (tools/code_analyzer.py)"]
+        DependencyAnalyzer["DependencyAnalyzer Tool (tools/dependency_analyzer.py)"]
+        LanguageDetector["LanguageDetector Tool (tools/language_detector.py)"]
+        StructureExtractor["StructureExtractor Tool (tools/structure_extractor.py)"]
+        GuardrailsTool["Guardrails Tool (tools/guardrails.py)"]
+        SharedMemoryTool["SharedMemory (tools/shared_memory.py)"]
+        PostgreSQLStorage["PostgreSQLStorage Tool (tools/postgres_storage.py)"]
+    end
 
-    class ProductController {
-        +getProduct() GET /products/{id}
-        +getProducts() GET /products
-        +createProduct() POST /products
-        +updateProduct() PUT /products/{id}
-        +deleteProduct() DELETE /products/{id}
-        +getProductsByCategory()
-    }
+    %% ==== Model Layer ====
+    subgraph Models [Model Layer]
+        DocumentationOutput["DocumentationOutput (models/documentation_output.py)"]
+        CodeStructure["CodeStructure (models/code_structure.py)"]
+    end
 
-    %% Gateway Layer - Services
-    class UserService {
-        +getUserById()
-        +getAllUsers()
-        +createUser()
-        +updateUser()
-        +deleteUser()
-        +validateUser()
-    }
-    
-    class OrderService {
-        +getOrderById()
-        +getAllOrders()
-        +createOrder()
-        +updateOrder()
-        +deleteOrder()
-        +processOrder()
-    }
+    %% ==== Data Layer ====
+    subgraph Data [Data Layer]
+        PostgreSQL["PostgreSQL DB (docgen table)"]
+    end
 
-    class ProductService {
-        +getProductById()
-        +getAllProducts()
-        +createProduct()
-        +updateProduct()
-        +deleteProduct()
-        +validateProduct()
-    }
+    %% ==== External Integrations ====
+    subgraph External [External Services]
+        GitRepo["Git Repository"]
+        ConfidentAI["Confident AI (metrics & tracing)"]
+    end
 
-    %% Gateway Layer - Repositories
-    class UserRepository {
-        +findById()
-        +findByEmail()
-        +existsByEmail()
-        +deleteByEmail()
-    }
+    %% ==== Connections ====
+    API_Server --> API_Route_Git
+    API_Server --> API_Route_Path
+    API_Route_Git -.-> GitRepo
+    API_Route_Path -.-> (Local FS)
 
-    class OrderRepository {
-        +findById()
-        +findByUserId()
-        +findByProductId()
-        +findAllByStatus()
-    }
+    API_Route_Git -->|trigger| DocGenCrew
+    API_Route_Path -->|trigger| DocGenCrew
 
-    class ProductRepository {
-        +findById()
-        +findByName()
-        +existsByName()
-        +deleteByName()
-    }
+    DocGenCrew --> CodeAnalyzer
+    DocGenCrew --> DependencyAnalyzer
+    DocGenCrew --> LanguageDetector
+    DocGenCrew --> StructureExtractor
+    DocGenCrew --> GuardrailsTool
+    DocGenCrew --> PostgreSQLStorage
+    DocGenCrew --> ArchitectureAgent
+    DocGenCrew --> APISemanticsAgent
+    DocGenCrew --> ExamplesAgent
+    DocGenCrew --> GettingStartedAgent
+    DocGenCrew --> DocumentAssembler
 
-    %% Models & DTOs
-    class User {
-        +id, username, email, password, createdAt
-        @Entity
-        @Table(name='users')
-    }
+    CodeAnalyzer --> SharedMemoryTool
+    DependencyAnalyzer --> SharedMemoryTool
+    LanguageDetector --> SharedMemoryTool
+    StructureExtractor --> SharedMemoryTool
+    GuardrailsTool --> SharedMemoryTool
+    PostgreSQLStorage --> PostgreSQL
 
-    class Order {
-        +id, userId, productId, quantity, totalAmount, status, createdAt
-        @Entity
-        @Table(name='orders')
-    }
+    SharedMemoryTool --> PostgreSQL
+    DocumentationOutput -->|writes| docs_folder["/docs (static files)"]
+    DocumentationOutput --> Models
 
-    class Product {
-        +id, name, description, price, stock, createdAt
-        @Entity
-        @Table(name='products')
-    }
+    DocGenCrew ..> ConfidentAI : logs / evaluates
+    PostgreSQLStorage ..> ConfidentAI : metric upload
+    GuardrailsTool ..> ConfidentAI : validation results
 
-    %% Integration Layer
-    class ExternalApiGateway {
-        +callExternalApi()
-    }
-
-    class InternalApiGateway {
-        +callInternalApi()
-    }
-
-    class MessageQueuePublisher {
-        +publish()
-        @Retryable
-    }
-
-    class MessageQueueConsumer {
-        +consumeMessage()
-        @KafkaListener
-    }
-
-    %% Configuration
-    class SecurityConfig {
-        +configure(HttpSecurity)
-        +passwordEncoder()
-        +authenticationManager()
-        @Configuration
-        @EnableWebSecurity
-    }
-
-    class DatabaseConfig {
-        +entityManagerFactory()
-        @Configuration
-        @EnableJpaRepositories
-    }
-
-    class JpaConfig {
-        +hibernateProperties()
-        @Configuration
-    }
-
-    class CorsConfig {
-        +corsFilter()
-        @Configuration
-    }
-
-    class CacheConfig {
-        +cacheManager()
-        @Configuration
-        @EnableCaching
-    }
-
-    class RestTemplateConfig {
-        +restTemplateBuilder()
-        @Configuration
-    }
-
-    class WebMvcConfig {
-        +addInterceptors()
-        @Configuration
-        @EnableWebMvc
-    }
-
-    %% Security Components
-    class JwtTokenProvider {
-        +generateToken()
-        +validateToken()
-        +getUserIdFromToken()
-        +getExpiration()
-        @Component
-    }
-
-    class JwtAuthenticationFilter {
-        +doFilterInternal()
-        @Component
-        @Order(FIRST)
-    }
-
-    %% AOP & Utilities
-    class LoggingAspect {
-        +logMethodEntry()
-        +logMethodExit()
-        +logException()
-        @Component
-        @Aspect
-    }
-
-    class RateLimiter {
-        +allowRequest()
-        @Component
-        @Aspect
-    }
-
-    class ResponseWrapper {
-        +wrap()
-        +wrapList()
-        @Component
-    }
-
-    class UserTransformer {
-        +toEntity()
-        +toDto()
-        @Component
-    }
-
-    class OrderTransformer {
-        +toEntity()
-        +toDto()
-        @Component
-    }
-
-    class ProductTransformer {
-        +toEntity()
-        +toDto()
-        @Component
-    }
-
-    %% Exception Handling
-    class RestApiException {
-        +errorCode, message, status
-    }
-
-    class RestApiExceptionHandler {
-        +handleRestApiException()
-        +handleException()
-        +handleValidationException()
-        @ControllerAdvice
-    }
-
-    %% Scheduling Module
-    class ScheduledTask {
-        +id, name, cron, enabled, createdAt
-        @Entity
-    }
-
-    class ScheduledTaskRepository {
-        +findById()
-        +findByEnabled()
-    }
-
-    class ScheduledTaskService {
-        +executeScheduledTask()
-        @Service
-        @Scheduled
-    }
-
-    class ScheduledTaskController {
-        +getScheduledTasks() GET /scheduled-tasks
-        +enableScheduledTask()
-        +disableScheduledTask()
-    }
-
-    %% Spring Batch Components
-    class CustomerReader {
-        +read()
-    }
-
-    class CustomerProcessor {
-        +process()
-    }
-
-    class CustomerWriter {
-        +write()
-    }
-
-    %% Dependencies
-    UserController --> UserService : inject
-    OrderController --> OrderService : inject
-    ProductController --> ProductService : inject
-
-    UserService --> UserRepository : inject
-    OrderService --> OrderRepository : inject
-    ProductService --> ProductRepository : inject
-
-    UserController --> ResponseWrapper : wrap
-    OrderController --> ResponseWrapper : wrap
-    ProductController --> ResponseWrapper : wrap
-
-    JwtAuthenticationFilter ..> SecurityConfig : config
-    JwtTokenProvider --> SecurityConfig : inject
-    UserService --> JwtTokenProvider : inject
-    UserService --> JwtAuthenticationFilter : depend
-
-    ExternalApiGateway --> InternalApiGateway : may call
-    MessageQueuePublisher ..> ExternalApiGateway : publish async
-
-    LoggingAspect .->.* : aspect weaving
-    RateLimiter .->.* : aspect weaving
-
-    ScheduledTaskController --> ScheduledTaskService : inject
-    ScheduledTaskService --> ScheduledTaskRepository : inject
-
-    CustomerReader .->.* : batch item read
-    CustomerProcessor .->.* : batch item process
-    CustomerWriter .->.* : batch item write
-
-    %% External Systems
-    class "MySQL Database" as DB
-    class "Kafka" as Kafka
-    class "Redis Cache" as Redis
-    class "External APIs" as ExternalAPI
-
-    UserRepository --o DB : JPA/Hibernate
-    OrderRepository --o DB : JPA/Hibernate
-    ProductRepository --o DB : JPA/Hibernate
-    ScheduledTaskRepository --o DB : JPA/Hibernate
-
-    MessageQueuePublisher --> Kafka : publish
-    MessageQueueConsumer --> Kafka : subscribe
-
-    CacheConfig --> Redis : cache storage
+    style API fill:#f9f,stroke:#333,stroke-width:2px
+    style Service fill:#bbf,stroke:#333,stroke-width:2px
+    style Tools fill:#bfb,stroke:#333,stroke-width:2px
+    style Models fill:#ffb,stroke:#333,stroke-width:2px
+    style Data fill:#ffe,stroke:#333,stroke-width:2px
+    style External fill:#ddd,stroke:#333,stroke-width:2px
 ```
 
----
+---  
 
-## Architecture Narrative
+## Detailed Narrative  
 
-### 1. Architectural Pattern
+### 1. Architectural Pattern  
 
-This system implements a **Layered (n-tier) Architecture** with clear separation of concerns:
+| Pattern | Evidence |
+|---------|----------|
+| **Layered / Service‑Oriented** | The system is split into clear layers: **API** (FastAPI routes), **Service** (CrewAI crew & agents), **Tools** (re‑usable utilities), **Models**, **Data** (PostgreSQL). |
+| **Micro‑agent (CrewAI) orchestration** | `src/doc_generator/crew.py` defines `DocGenerator` (decorated with `@CrewBase`). It creates several agents (`architecture_reasoning_agent`, `api_semantics_agent`, etc.) that each own a dedicated task. |
+| **Dependency Injection via SharedMemory** | All tools read/write a singleton `SharedMemory` (see `tools/shared_memory.py`). This removes tight coupling and allows any component to fetch data produced by another. |
+| **External Observability** | Integration with **Confident AI** (`deepeval` tracing and metric upload) provides observability without coupling business logic. |
 
-- **Presentation Layer** (`*Controller` classes)
-- **Business Logic Layer** (`*Service` classes)
-- **Data Access Layer** (`*Repository` interfaces)
-- **Integration Layer** (external/internal API clients, message queues)
-- **Configuration & Cross-Cutting Concerns** (security, logging, caching, AOP)
+### 2. Component Responsibilities  
 
-The presentation layer follows the **MVC pattern**, where controllers delegate to services, and services coordinate repositories. A **hexagonal architecture influence** is evident in the integration layer abstraction (e.g., `ExternalApiGateway`, `InternalApiGateway`).
+| Layer | Component | Primary Role | Source File |
+|-------|-----------|---------------|--------------|
+| **API** | FastAPI app (`api_server.py`) | Exposes `/generate-from-git` and `/generate-from-path` endpoints; mounts static docs folder. | `api_server.py` |
+| **Service / Crew** | `DocGenerator` (Crew) | Orchestrates the whole documentation pipeline; creates agents and defines tasks. | `src/doc_generator/crew.py` |
+| | Architecture Reasoning Agent | Generates architecture diagram & description. | `crew.py` (method `architecture_reasoning_agent`) |
+| | API Semantics Agent | Produces API reference section. | `crew.py` |
+| | Examples Agent | Generates usage examples. | `crew.py` |
+| | Getting‑Started Agent | Writes README / quick‑start guide. | `crew.py` |
+| | Document Assembler Agent | Assembles final markdown with section markers. | `crew.py` |
+| **Tools** | `CodeAnalyzer` | Parses the entire codebase, builds AST, stores in SharedMemory. | `tools/code_analyzer.py` |
+| | `DependencyAnalyzer` | Detects Python & Java import relationships. | `tools/dependency_analyzer.py` |
+| | `LanguageDetector` | Detects languages present in the repo. | `tools/language_detector.py` |
+| | `StructureExtractor` | Reads source files and returns raw content for LLM analysis. | `tools/structure_extractor.py` |
+| | `Guardrails` / `GuardrailsTool` | Validates JSON/Markdown, redacts PII, checks hallucination risk, quality gates. | `tools/guardrails.py` |
+| | `SharedMemory` | Singleton backed by a PostgreSQL table; stores intermediate artefacts (AST, language list, source files, traces). | `tools/shared_memory.py` |
+| | `PostgreSQLStorage` | Persists task results (name, agent role, score) to the DB; used for trace collection. | `tools/postgres_storage.py` |
+| **Models** | `DocumentationOutput` | Pydantic model that holds final documentation pieces and writes them to the `docs/` folder. | `models/documentation_output.py` |
+| | `CodeStructure` & related dataclasses (`FileInfo`, `ClassInfo`, …) | Represent parsed code‑structure for the `CodeAnalyzer` output. | `models/code_structure.py` |
+| **Data** | PostgreSQL `docgen` table | Stores shared memory key‑value pairs and trace logs. Accessed via `SharedMemory` and `PostgreSQLStorage`. |
+| **External** | Git (CLI `git clone`) | Used by both the CLI (`run()`) and API (`/generate-from-git`) to fetch remote repos. | `src/doc_generator/main.py`, `api_server.py` |
+| | Confident AI (deepeval) | Handles metrics, tracing, and optional dashboard visualisation. All calls guarded by the `CONFIDENT_API_KEY` env var. | `src/doc_generator/main.py` |
 
-### 2. Component Roles
+### 3. Data Flow (Request → Response)
 
-#### Presentation Layer (`*Controller`)
-- HTTP request entry points (`@RestController`)
-- Request routing, validation, and response wrapping
-- Examples: `UserController`, `OrderController`, `ProductController`
+1. **Entry Point**  
+   *CLI*: `run()` in `src/doc_generator/main.py` prompts for a folder or Git URL.  
+   *API*: POST `/generate-from-git` or `/generate-from-path` receives a URL/path.
 
-#### Business Logic Layer (`*Service`)
-- Core domain logic and orchestration
-- Transaction boundaries (implied via `@Transactional`)
-- Utilizes repositories and transformers
-- Examples: `UserService`, `OrderService`, `ProductService`
+2. **Repository Retrieval** *(if needed)*  
+   `git clone --depth 1 <url>` → temporary directory (handled in both entry points).
 
-#### Data Access Layer (`*Repository`)
-- JPA repository interfaces extending `JpaRepository`
-- Repository methods for common queries (`findById`, `findByXxx`)
-- Examples: `UserRepository`, `OrderRepository`, `ProductRepository`
+3. **SharedMemory Reset**  
+   `SharedMemory().clear()` ensures a clean slate.
 
-#### Domain Models (`*`)
-- JPA entities (`@Entity`)
-- Mapped to database tables (`@Table`)
-- Include lifecycle callbacks via `@EntityListeners`
-- Examples: `User`, `Order`, `Product`, `ScheduledTask`
+4. **Crew Execution** (`DocGenerator().crew().kickoff(inputs)`)  
+   - The **CodeAnalyzer** tool reads every source file, builds an AST (`CodeStructure`) and writes it to SharedMemory.  
+   - **DependencyAnalyzer**, **LanguageDetector**, and **StructureExtractor** enrich SharedMemory with dependency graphs, language list, and raw source text.  
+   - Each **Agent** (Architecture, API Semantics, Examples, Getting‑Started) reads the SharedMemory data, runs its LLM task, and produces a markdown fragment.  
+   - The **Document Assembler** concatenates fragments, inserting `===SECTION: filename===` markers.
 
-#### Integration Layer
-- `ExternalApiGateway`: REST client for external system calls (`RestTemplate`)
-- `InternalApiGateway`: REST client for internal service-to-service calls
-- `MessageQueuePublisher`/`MessageQueueConsumer`: Kafka integration for async messaging
-- Kafka consumer uses `@KafkaListener`, publisher uses `@Retryable`
+5. **Extraction & Validation**  
+   - The service extracts sections via `_split_sections`.  
+   - `GuardrailsTool` can be invoked (within agents) to redact PII and enforce JSON/Markdown correctness.  
+   - Metric evaluation (`deepeval` metrics such as faithfulness, toxicity, hallucination, etc.) runs in `run()` and on the API side via `generate_docs()`. Results are sent to **Confident AI**.
 
-#### Configuration Layer
-- Module-specific configurations (`@Configuration`)
-- Database setup (`DatabaseConfig`, `JpaConfig`)
-- Security (`SecurityConfig`)
-- Web (`WebMvcConfig`, `CorsConfig`)
-- Caching (`CacheConfig` using Redis)
-- REST client (`RestTemplateConfig`)
+6. **Persistence**  
+   - Intermediate results (traces, metrics) are stored in the `docgen` table via `PostgreSQLStorage`.  
+   - Final documentation pieces are materialised in the `DocumentationOutput` model and written to `docs/` (static files) and a combined `technical_documentation.md`.
 
-#### Security & AOP Layer
-- `SecurityConfig`: Spring Security setup with JWT-based authentication
-- `JwtTokenProvider`: JWT generation and validation
-- `JwtAuthenticationFilter`: HTTP request filter for JWT extraction and validation
-- `LoggingAspect`: Method entry/exit/exception logging via AOP
-- `RateLimiter`: Rate limiting via AOP
+7. **Response**  
+   *CLI*: prints a summary and returns the crew result.  
+   *API*: returns a JSON payload containing language, file count, endpoint count, and the absolute path to the generated docs.
 
-#### Transformer Layer
-- `*Transformer` classes convert between DTOs and entities
-- Examples: `UserTransformer`, `OrderTransformer`, `ProductTransformer`
+8. **Flush & Observability**  
+   `deepeval.flush()` guarantees all traces/metrics are delivered before the process exits.
 
-#### Exception Handling Layer
-- `RestApiException`: Custom exception for application errors
-- `RestApiExceptionHandler` (`@ControllerAdvice`): Global exception handler
+### 4. Security Architecture  
 
-#### Utility Layer
-- `ResponseWrapper`: Standardizes API response format
-- `RateLimiter`: Utility for rate limiting logic
-- Custom interceptors (e.g., `CustomRetryInterceptor`)
+| Concern | Implementation |
+|--------|----------------|
+| **API Authentication** | None built‑in; the service is intended for internal use or protected by external gateway. |
+| **Confident AI Credential** | Loaded from environment variable `CONFIDENT_API_KEY`. Guarded by early `load_dotenv()` (see `src/doc_generator/main.py`). |
+| **Sensitive Data Redaction** | `Guardrails.redact_sensitive_data` removes API keys, passwords, tokens, and PII from generated content before persisting. |
+| **Git Clone Safety** | Clones are depth‑limited (`--depth 1`) and executed in a temporary directory that is removed after processing. |
+| **Database Access** | `SharedMemory` uses a **singleton** PostgreSQL engine with parameterised queries (SQLAlchemy) – mitigates injection risk. |
+| **Input Validation** | API endpoints validate path existence and URL format; FastAPI automatically sanitises form data. |
 
-#### Scheduling Module (`api-scheduling`)
-- Dedicated to scheduled batch operations
-- `@Scheduled` tasks with cron configuration
-- `ScheduledTask` entity for task persistence
-- Module includes its own repository, service, and controller
+### 5. Key Design Patterns Observed  
 
-#### Batch Processing Module (`api-springbatch`)
-- Spring Batch implementation for ETL tasks
-- Custom `CustomerReader`, `CustomerProcessor`, `CustomerWriter`
-- Designed for large data processing jobs
+| Pattern | Where Used |
+|---------|-------------|
+| **Singleton** | `SharedMemory` implements a process‑wide singleton for shared state. |
+| **Factory / Builder** | The `DocGenerator` crew builds a collection of agents and tasks dynamically. |
+| **Decorator** | Agents are marked with `@agent`; tasks with `@task`. Tools inherit from `BaseTool`. |
+| **Strategy** | Different agents (architecture, API, examples) encapsulate distinct LLM prompting strategies. |
+| **Adapter** | `PostgreSQLStorage` adapts the generic `BaseTool` interface to a concrete DB write operation. |
+| **Template Method** | Each `Agent` follows a common execution skeleton (input → LLM call → output) provided by CrewAI. |
 
-### 3. Data Flow (Request to Response)
+### 6. Summary of Layers & Their Inter‑connections  
 
-1. **HTTP Request** → `*Controller` (e.g., `GET /users/1` → `UserController.getUser()`)
-2. **Controller** validates input and calls `UserService.getUserById(id)`
-3. **Service** calls `UserRepository.findById(id)`
-4. **Repository** executes JPA query → **MySQL Database**
-5. **Result** → entity → `UserTransformer.toDto()`
-6. **Service** performs business logic, optionally calls `JwtTokenProvider`
-7. **Controller** wraps response with `ResponseWrapper.wrap()`
-8. **Response** sent with standardized format
+```
+[API]  →  (FastAPI)   →  [Service / Crew]  →  (Agents & Tasks)
+                                   │
+                                   ├─► [Tool: CodeAnalyzer] ──► SharedMemory
+                                   ├─► [Tool: DependencyAnalyzer] ──► SharedMemory
+                                   ├─► [Tool: LanguageDetector] ──► SharedMemory
+                                   ├─► [Tool: StructureExtractor] ──► SharedMemory
+                                   ├─► [Tool: Guardrails] ──► SharedMemory
+                                   └─► [Tool: PostgreSQLStorage] ──► PostgreSQL
+                                   │
+                                   ▼
+                                [Models] (DocumentationOutput, CodeStructure)
+                                   │
+                                   ▼
+                               [Data] (PostgreSQL table `docgen`)
+                                   │
+                                   ▼
+                           [External Services] (Git, Confident AI)
+```
 
-Cross-cutting concerns applied via AOP and filters:
-- `JwtAuthenticationFilter` intercepts before request reaches controller
-- `LoggingAspect` logs method entry/exit
-- `RateLimiter` enforces request rate limits
-- `RestApiExceptionHandler` handles exceptions globally
-
-### 4. External Integrations
-
-| Integration | Component | Technology | Purpose |
-|-------------|-----------|------------|---------|
-| **MySQL** | `DatabaseConfig`, `JpaConfig` | Spring Data JPA / Hibernate | Primary data persistence |
-| **Redis** | `CacheConfig` | Spring Cache / Lettuce | Caching layer |
-| **Kafka** | `MessageQueuePublisher`, `MessageQueueConsumer` | Spring Kafka | Async messaging and event-driven architecture |
-| **External APIs** | `ExternalApiGateway` | `RestTemplate` | Integrate with 3rd-party services |
-| **Internal Services** | `InternalApiGateway` | `RestTemplate` | Service-to-service communication |
-
-### 5. Security Architecture
-
-- **Authentication**: JWT-based
-  - `JwtTokenProvider` generates and validates tokens
-  - `JwtAuthenticationFilter` extracts and validates JWT from `Authorization: Bearer` header
-  - Credentials and tokens stored/configured in `application.yml`
-
-- **Authorization**:
-  - Secured via Spring Security (`SecurityConfig`)
-  - Password encoding via BCrypt (via `passwordEncoder()` bean)
-  - `@PreAuthorize`, `@Secured` annotations implied (not visible but standard)
-
-- **CORS**:
-  - Configured in `CorsConfig`
-  - Allows cross-origin requests per environment
-
-- **Rate Limiting**:
-  - `RateLimiter` component with AOP advice
-  - Configurable limits per endpoint or user
-
-- **Security Properties** (from `application.yml`):
-  ```yaml
-  security:
-    jwt:
-      secret: env:JWT_SECRET
-      expiration: 3600000  # 1 hour
-  ```
-
-### 6. Design Patterns Observed
-
-- **Layered Architecture**: Clear layer separation (Controller → Service → Repository)
-- **DTO/Entity Pattern**: Separation between domain models (`User`) and DTOs via `Transformer`
-- **Gateway Pattern**: `ExternalApiGateway`, `InternalApiGateway` abstract HTTP calls
-- **Aspect-Oriented Programming (AOP)**: Logging, rate limiting via `@Aspect` components
-- **Template Method**: Spring Batch `ItemReader`, `ItemProcessor`, `ItemWriter`
-- **Observer Pattern**: Kafka `@KafkaListener` subscribers
-- **Factory Pattern**: `JwtTokenProvider`, `ResponseWrapper`
-- **Strategy Pattern**: Multiple transformer implementations
-- **Retry Pattern**: `@Retryable` on message queue publisher
-
-### 7. Data Persistence Strategy
-
-- **ORM**: Hibernate via Spring Data JPA
-- **DDL Auto**: `update` (for dev environments)
-- **SQL Dialect**: MySQL 8
-- **Database URL**: `jdbc:mysql://db:3306/api_gateway`
-- **Entities**:
-  - `User`: table = `users`
-  - `Order`: table = `orders`
-  - `Product`: table = `products`
-  - `ScheduledTask`: table = `scheduled_tasks`
-- **Entity Lifecycle**: `@EntityListeners` → `EntityListener` for `prePersist`, `preUpdate`
-
-### 8. Build & Dependencies
-
-- **Build Tool**: Maven
-- **Modules**:
-  - `api-gateway` (main app, 17 source files)
-  - `api-scheduling` (scheduled tasks, 5 files)
-  - `api-springbatch` (batch processing, 4 files)
-- **Key Dependencies** (from `pom.xml`):
-  - Spring Boot: 2.7.18
-  - Spring Security: 2.7.18
-  - Spring Data JPA: 2.7.18
-  - Spring Kafka: 2.9.11
-  - Spring Batch: 2.7.18
-  - JWT (jjwt): 0.11.5
-  - Redis (caching), MySQL Connector: 8.0.33
-
-### 9. Application Entry Points
-
-| Entry Point | Module | Purpose |
-|-------------|--------|---------|
-| `RestApiApplication.java` | api-gateway | Main HTTP API gateway (port 8080) |
-| `SchedulingApplication.java` | api-scheduling | Task scheduling runner |
-| `SpringBatchApplication.java` | api-springbatch | Batch job runner |
-
----
-
-## Summary
-
-The system is a **well-structured, enterprise-grade Spring Boot microservice** with layered architecture and clean separation between concerns. It supports REST APIs, scheduled tasks, and batch processing, integrated with MySQL, Redis, and Kafka. Security is implemented via JWT, with additional protections like rate limiting, CORS, and global exception handling. All layers are comprehensively implemented with clear responsibility and dependency flow.
-
----
+All components are accounted for in the diagram and narrative, satisfying the requirement to capture **controllers/routes, services, repositories, models, utilities, configuration, security, and external integrations**.
