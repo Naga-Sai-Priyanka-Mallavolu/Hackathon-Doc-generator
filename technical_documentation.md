@@ -1,4 +1,5 @@
 ===SECTION: README.md===
+<<<<<<< Updated upstream
 # Documentation Generator
 
 ## Table of Contents
@@ -8,9 +9,25 @@
 - [API Reference](API_REFERENCE.md)  
 - [Architecture Diagram](ARCHITECTURE.md)  
 - [Examples](EXAMPLES.md)
+=======
+# README
 
----
+## Table of Contents
+- [Project Overview](#project-overview)
+- [Getting Started](#getting-started)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Running the Application](#running-the-application)
+- [Quick Start Example](#quick-start-example)
+- [Project Structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
+- [Further Documentation](#further-documentation)
+>>>>>>> Stashed changes
 
+## Project Overview
+**doc‑generator** is an AI‑powered documentation generator that extracts source code, configuration, and test information from a repository, runs a series of crew‑AI agents, evaluates the output with GEval metrics, and writes a complete set of markdown documentation (README, API reference, architecture diagram, examples, test docs, etc.).
+
+<<<<<<< Updated upstream
 ## Project Overview  
 
 The **Documentation Generator** is a Python‑based, multi‑agent system that automatically produces complete technical documentation (README, API reference, architecture diagram, usage examples, etc.) for any source repository.  
@@ -157,10 +174,120 @@ A built‑in smoke test can be executed with:
 
 ```bash
 doc_generator test 2 gpt-4
+=======
+- **Core purpose** – Automatically produce high‑quality project documentation without manual writing.
+- **Technology stack** – Python 3.10‑3.13, FastAPI, PostgreSQL, Ollama LLM, React 19 + Vite frontend, npm, Docker.
+
+## Getting Started
+
+### Prerequisites
+
+| Tool | Minimum version | Install command |
+|------|----------------|-----------------|
+| Python | 3.10 ≤ x < 3.14 | `pyenv install 3.12 && pyenv global 3.12` |
+| pip | latest (bundled) | `python -m ensurepip --upgrade` |
+| Node.js | 20.x (LTS) | `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs` |
+| npm | 10.x (bundled) | `npm --version` |
+| PostgreSQL | 14.x+ | `sudo apt-get install postgresql-14` |
+| Git | any recent | `git --version` |
+| Docker (optional) | 24.x | `docker pull postgres:15 && docker run …` |
+
+### Installation
+
+```bash
+# 1️⃣ Clone the repository
+git clone https://github.com/your-org/doc-generator.git
+cd doc-generator
+
+# 2️⃣ Set up a Python virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# 3️⃣ Install Python dependencies
+pip install --upgrade pip
+pip install .   # installs package and crewAI[tools], deepeval, etc.
+
+# 4️⃣ Install the React frontend dependencies
+cd docgen-frontend
+npm install
+cd ..
+
+# 5️⃣ Prepare the PostgreSQL database
+psql -U postgres <<SQL
+CREATE DATABASE docgen;
+CREATE USER docgen_user WITH ENCRYPTED PASSWORD 'password';
+GRANT ALL PRIVILEGES ON DATABASE docgen TO docgen_user;
+SQL
+
+# 6️⃣ Create a .env file at the project root
+cat > .env <<EOF
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=docgen
+POSTGRES_USER=docgen_user
+POSTGRES_PASSWORD=password
+OLLAMA_HOST=http://127.0.0.1:11434
+EOF
+
+# 7️⃣ Build the frontend (optional – needed only for UI)
+cd docgen-frontend
+npm run build   # produces static assets in dist/
+cd ..
+
+# 8️⃣ Verify the installation
+python -m doc_generator --help   # should show CLI entry points
 ```
 
----
+### Configuration
 
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `POSTGRES_HOST` | PostgreSQL host | `localhost` |
+| `POSTGRES_PORT` | PostgreSQL port | `5432` |
+| `POSTGRES_DB`   | Database name | `docgen` |
+| `POSTGRES_USER` | DB user | `docgen_user` |
+| `POSTGRES_PASSWORD` | DB password | `password` |
+| `OLLAMA_HOST` | URL of the local Ollama server | `http://127.0.0.1:11434` |
+
+Optional:
+- `LOG_LEVEL` – set to `DEBUG` for verbose logs.
+- `MAX_RETRY_ATTEMPTS` – number of crew retries (default 3).
+
+### Running the Application
+
+#### API server (FastAPI)
+
+```bash
+source .venv/bin/activate
+uvicorn api_server:app --host 0.0.0.0 --port 8000
+```
+
+The API is reachable at `http://localhost:8000`.
+
+#### CLI entry points
+
+```bash
+# From a local folder
+doc_generator generate-from-path --folder_path /path/to/project --output_dir ./generated-docs
+
+# From a public Git repo
+doc_generator generate-from-git --git_url https://github.com/example/example-repo.git --output_dir ./generated-docs
+```
+
+All generated markdown files will be placed under the supplied `output_dir`.
+
+### Quick Start – First API Call
+
+```bash
+curl -X POST "http://localhost:8000/generate-from-path" \
+     -H "Content-Type: multipart/form-data" \
+     -F "folder_path=$(pwd)"
+>>>>>>> Stashed changes
+```
+
+Expected JSON response (truncated):
+
+<<<<<<< Updated upstream
 Enjoy automatically generated documentation! 🎉
 
 ===SECTION: API_REFERENCE.md===
@@ -552,18 +679,336 @@ curl -X POST "http://localhost:8000/generate-from-git" \
 
 ### Successful Response (HTTP 200)
 
+=======
 ```json
 {
   "status": "success",
   "metrics": {
     "language": "python",
-    "total_files": 42,
-    "total_endpoints": 7,
-    "docs_path": "/absolute/path/to/docs"
+    "total_files": 120,
+    "total_endpoints": 5,
+    "docs_path": "/full/path/to/generated-docs"
   }
 }
 ```
 
+Open the `docs_path` folder to find `README.md`, `API_REFERENCE.md`, `ARCHITECTURE.md`, etc.
+
+### Project Structure
+
+```
+/doc-generator
+│
+├─ src/
+│   └─ doc_generator/
+│       ├─ crew.py
+│       ├─ main.py
+│       ├─ models/
+│       └─ tools/
+│
+├─ docgen-frontend/
+│   ├─ src/
+│   └─ package.json
+│
+├─ api_server.py
+├─ pyproject.toml
+├─ .env.example
+└─ tests/
+```
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Port 8000 already in use | Another process bound to 8000 | Run on another port (`uvicorn ... --port 8080`) or stop the other service |
+| DB connection error | Wrong `.env` values or PostgreSQL not running | Verify `.env` and test `psql` connection |
+| `ImportError: No module named crewai` | Dependencies not installed | `pip install .` inside the venv |
+| Frontend build fails | Node version too old | Upgrade to Node 20+, delete `node_modules`, run `npm install` |
+| LLM request times out | Ollama not running | Start Ollama (`ollama serve`) and check `curl $OLLAMA_HOST/v1/models` |
+| Tests fail with `psycopg2` errors | Missing PostgreSQL client lib | `pip install psycopg2-binary` |
+
+Set `LOG_LEVEL=DEBUG` in `.env` for detailed logs.
+
+## Further Documentation
+- **API Reference**: See [API_REFERENCE.md](API_REFERENCE.md)  
+- **System Architecture**: See [ARCHITECTURE.md](ARCHITECTURE.md)  
+- **Code Examples**: See [EXAMPLES.md](EXAMPLES.md)  
+- **Test Documentation**: See [TEST_DOCUMENTATION.md](TEST_DOCUMENTATION.md)  
+
+===SECTION: API_REFERENCE.md===
+# API Reference
+
+## Documentation Generator API – FastAPI Endpoints
+
+| # | Method | Path | Short description |
+|---|--------|------|-------------------|
+| 1 | POST | `/generate-from-git` | Clone a public Git repo, run the documentation pipeline and return generation metrics. |
+| 2 | POST | `/generate-from-path` | Run the documentation pipeline on a local folder and return generation metrics. |
+| 3 | GET | `/traces` | Retrieve the list of agent execution traces stored in PostgreSQL. |
+| 4 | GET | `/docs-static/{page}`* | Serve static documentation files (README, API reference, …) from the `docs/` folder. *Provided automatically by FastAPI `StaticFiles` mount; not a custom handler. |
+
+### 1. `POST /generate-from-git`
+
+**Purpose**  
+Clones the supplied Git repository (shallow clone, depth 1) into a temporary directory, runs the full documentation generation pipeline, and returns a JSON payload containing the generation status and metrics.
+
+**Request Parameters**
+
+| Parameter | Location | Type | Required | Description |
+|-----------|----------|------|----------|-------------|
+| `git_url` | Form‑data | `str` | Yes | URL of a **public** Git repository (e.g. `https://github.com/user/repo`). |
+
+**Response (`application/json`)**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | `str` | `"success"` when the pipeline finishes without error. |
+| `metrics` | `object` | Dictionary with keys `language`, `total_files`, `total_endpoints`, `docs_path`. |
+| `error` | `str` | Present only on failure (HTTP 500). |
+
+**Status codes**
+
+| Code | Meaning |
+|------|---------|
+| 200 | Generation succeeded. |
+| 400 | Invalid request (unlikely for this endpoint). |
+| 500 | Runtime error while cloning or generating docs. |
+
+### 2. `POST /generate-from-path`
+
+**Purpose**  
+Runs the documentation pipeline on an already‑cloned local folder and returns the same JSON payload as the Git endpoint.
+
+**Request Parameters**
+
+| Parameter | Location | Type | Required | Description |
+|-----------|----------|------|----------|-------------|
+| `folder_path` | Form‑data | `str` | Yes | Absolute or relative path to the project directory on the server. |
+
+**Response (`application/json`)**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | `str` | `"success"` on normal completion. |
+| `metrics` | `object` | Same metric dictionary as above. |
+| `error` | `str` | Error description (HTTP 500) or validation error (HTTP 400). |
+
+**Status codes**
+
+| Code | Meaning |
+|------|---------|
+| 200 | Generation succeeded. |
+| 400 | Path does not exist or is not a directory. |
+| 500 | Unexpected error during generation. |
+
+### 3. `GET /traces`
+
+**Purpose**  
+Fetches all agent execution traces stored in the shared PostgreSQL `docgen` table.
+
+**Response (`application/json`)**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | `str` | `"success"` when the request is processed. |
+| `traces` | `list[str]` | Array of trace strings (raw JSON payloads from CrewAI agents). |
+| `error` | `str` | Present only on failure (HTTP 500). |
+
+**Status codes**
+
+| Code | Meaning |
+|------|---------|
+| 200 | Traces returned successfully. |
+| 500 | Database/serialization error. |
+
+### 4. `GET /docs-static/{page}` *(static files)*  
+
+FastAPI automatically serves any file placed in the `docs/` directory under the URL path `/docs-static/{page}` (e.g. `/docs-static/README.md`). No custom logic, request validation, or response schema beyond the default static‑file handling.
+
+**Typical usage:**  
+`GET /docs-static/README.md` → returns the **README.md** file content.
+
+**Error handling:**  
+If the file does not exist, FastAPI returns a standard `404` JSON response: `{ "detail": "Not Found" }`.
+
+---
+
+#### Common **Metrics** object (returned by the two POST endpoints)
+
+```json
+{
+  "language": "java",
+  "total_files": 42,
+  "total_endpoints": 17,
+  "docs_path": "/full/path/to/docs"
+}
+```
+
+===SECTION: ARCHITECTURE.md===
+# Architecture Documentation
+
+This document provides a complete overview of the **doc‑generator** system, including a Mermaid diagram and a detailed narrative of its layers, components, data flow, persistence, security, observability, and extensibility.
+
+## Narrative Architecture Description
+
+### 1. Architectural Pattern
+The system follows a **layered (n‑tier) architecture** with micro‑service‑style componentization inside a single FastAPI process. The layers are:
+
+1. **Presentation Layer** – FastAPI endpoints (`api_server.py`) and a React/Vite UI (`docgen‑frontend`).
+2. **Application Layer** – Orchestration logic (`src/doc_generator/main.py`) that launches the **DocGenerator Crew** (`src/doc_generator/crew.py`).
+3. **Domain / Model Layer** – Pydantic and dataclass models that describe extracted code structure and generated documentation (`src/doc_generator/models/*`).
+4. **Infrastructure Layer** – Tools and adapters (code analyser, config parser, guard‑rails, PostgreSQL storage, shared‑memory singleton, test analyser, GEval metrics).
+5. **External Services** – PostgreSQL, Ollama LLM, Confident AI observability, and remote Git repositories.
+
+### 2. Component Roles
+| Component | Layer | Role |
+|-----------|-------|------|
+| `api_server.py` (FastAPI) | Presentation | HTTP routes (`/generate-from-git`, `/generate-from-path`, `/traces`). Delegates to the application layer. |
+| `docgen‑frontend` (React) | Presentation | UI that consumes the FastAPI endpoints and renders markdown/diagrams. |
+| `src/doc_generator/main.py` | Application | Boots the crew, handles retries, evaluation, and final document persistence. |
+| `src/doc_generator/crew.py` – `DocGenerator` class | Application | Declares agents (code analyser, API semantics, architecture reasoning, example generation, getting‑started guide, document assembler) and the tasks that wire them together. Provides `run_with_evaluation`. |
+| `src/doc_generator/models/*` | Domain | `CodeStructure` (language‑agnostic AST) and `DocumentationOutput` (structured output with `save_to_folder`). |
+| `src/doc_generator/tools/code_analyzer.py` | Infrastructure | Parses source files (Python, Java, generic) and stores AST data in shared memory. |
+| `src/doc_generator/tools/config_parser.py` | Infrastructure | Extracts Maven, Gradle, npm, Docker, Spring, and generic configuration files. |
+| `src/doc_generator/tools/guardrails.py` | Infrastructure / Security | Redacts secrets, checks hallucination, validates JSON/Markdown, and enforces quality gates. |
+| `src/doc_generator/tools/memory_reader.py` | Infrastructure | Reads arbitrary keys from shared memory for agents that need prior artefacts. |
+| `src/doc_generator/tools/postgres_storage.py` | Infrastructure | Persists trace records and metric results to PostgreSQL (`DocGenTaskRecord`). |
+| `src/doc_generator/tools/shared_memory.py` | Infrastructure | Singleton backed by a PostgreSQL table; provides `set/get/append_to_list` etc. |
+| `src/doc_generator/tools/test_analyzer.py` | Infrastructure | Analyses test files (Python, Java, JavaScript) and stores a summary in shared memory. |
+| `src/doc_generator/geval_metrics.py` | Infrastructure | Creates GEval metric objects (faithfulness, toxicity, hallucination, relevance, completion, efficiency) and can upload them to Confident AI. |
+| PostgreSQL DB | External | Persistent store for shared memory, task traces, and evaluation metrics. |
+| Ollama LLM | External | Large language model used by crew agents to generate documentation content. |
+| Confident AI | External | Observability platform that receives tracing spans and metric uploads. |
+| Git repository (remote URL) | External | Source of code when `/generate-from-git` is invoked. |
+
+### 3. Data Persistence Strategy
+* **SharedMemory** (singleton) acts as the in‑process cache and is backed by a PostgreSQL table (`docgen`). All agents read/write through it.  
+* **PostgreSQLStorage** stores immutable trace entries (`DocGenTaskRecord`) for auditability and historical metric analysis.  
+* Generated documentation files are written to the filesystem under the user‑provided output directory; the path is communicated back to the client.
+
+### 4. Security Architecture
+* **Guardrails** validates output before it leaves the system: redacts API keys, passwords, tokens, and PII; checks for hallucinations; validates JSON/Markdown syntax; enforces quality thresholds.  
+* FastAPI enables CORS only for trusted origins.  
+* Sensitive configuration (DB credentials, Confident AI API key) is loaded from `.env` and never stored in shared memory because guard‑rails redact it.  
+* External calls (Git clone, Ollama inference, Confident AI upload) run in async functions with proper timeout/exception handling.
+
+### 5. Observability & Traceability
+* The `@observe` decorator (`deepeval.tracing`) wraps crew execution, producing **Confident AI spans** that capture agent name, task name, tool calls, timestamps, and confidence scores.  
+* GEval metric results can be uploaded via `geval_metrics.upload_all_metrics`.  
+* The `/traces` endpoint queries the PostgreSQL trace table, allowing users to inspect past runs.
+
+### 6. Extensibility
+* Adding a new documentation section only requires a new **Agent** and associated **Task** in `crew.py`; shared‑memory contracts remain unchanged.  
+* Supporting additional programming languages involves extending **CodeAnalyzer** with language‑specific parsers.  
+* Storage back‑ends can be swapped by implementing the same `BaseTool` interface (`_run`) for another database or cloud store.
+
+## Mermaid Diagram
+```mermaid
+flowchart LR
+    %% Presentation Layer
+    subgraph Presentation[Presentation Layer]
+        API[FastAPI (api_server.py)]
+        UI[Frontend (docgen‑frontend)]
+    end
+    
+    %% Application Layer
+    subgraph Application[Application Layer]
+        Main[Main Entrypoint (src/doc_generator/main.py)]
+        Crew[DocGenerator Crew (src/doc_generator/crew.py)]
+    end
+    
+    %% Domain / Model Layer
+    subgraph Domain[Domain / Model Layer]
+        CodeModel[CodeStructure Models (src/doc_generator/models/code_structure.py)]
+        DocOut[DocumentationOutput Model (src/doc_generator/models/documentation_output.py)]
+    end
+    
+    %% Infrastructure Layer
+    subgraph Infrastructure[Infrastructure Layer]
+        SM[SharedMemory (src/doc_generator/tools/shared_memory.py)]
+        PG[PostgreSQLStorage (src/doc_generator/tools/postgres_storage.py)]
+        CA[CodeAnalyzer Tool (src/doc_generator/tools/code_analyzer.py)]
+        CP[ConfigParser Tool (src/doc_generator/tools/config_parser.py)]
+        GA[Guardrails Tool (src/doc_generator/tools/guardrails.py)]
+        MR[MemoryReader Tool (src/doc_generator/tools/memory_reader.py)]
+        TA[TestAnalyzer Tool (src/doc_generator/tools/test_analyzer.py)]
+        GE[GEval Metrics (src/doc_generator/geval_metrics.py)]
+    end
+    
+    %% External Services
+    subgraph External[External Services]
+        DB[(PostgreSQL DB)]
+        LLM[(Ollama LLM)]
+        CI[(Confident AI Observability)]
+        Git[(Git Repository)]
+    end
+    
+    %% Relationships
+    UI -- calls --> API
+    API --> Main
+    Main --> Crew
+    Crew -- orchestrates --> CA
+    Crew -- orchestrates --> CP
+    Crew -- orchestrates --> GA
+    Crew -- orchestrates --> TA
+    Crew -- orchestrates --> GE
+    Crew -- stores/retrieves --> SM
+    SM -- persists --> DB
+    PG -- writes traces --> DB
+    CA -- writes parsed code --> SM
+    CP -- writes config data --> SM
+    MR -- reads shared data --> SM
+    GA -- validates output --> SM
+    TA -- writes test analysis --> SM
+    GE -- evaluates docs --> SM
+    LLM -- used by agents (via Crew) --> API
+    CI -- receives traces & metrics --> Crew
+    API -- clones --> Git
+    style Presentation fill:#f9f,stroke:#333,stroke-width:2px
+    style Application fill:#bbf,stroke:#333,stroke-width:2px
+    style Domain fill:#bfb,stroke:#333,stroke-width:2px
+    style Infrastructure fill:#ffb,stroke:#333,stroke-width:2px
+    style External fill:#ddd,stroke:#333,stroke-width:2px
+```
+
+===SECTION: EXAMPLES.md===
+# API Usage Examples
+
+Below are ready‑to‑copy `curl` commands for every endpoint exposed by the Documentation Generator API, together with sample responses and common error cases.
+
+## `POST /generate-from-git`
+
+**Description** – Clone a public Git repository, run the documentation pipeline, and receive generation metrics.
+
+```bash
+curl -X POST "http://localhost:8000/generate-from-git" \
+     -H "Content-Type: multipart/form-data" \
+     -F "git_url=https://github.com/example-user/example-repo"
+```
+
+**Success (HTTP 200)**
+
+>>>>>>> Stashed changes
+```json
+{
+  "status": "success",
+  "metrics": {
+<<<<<<< Updated upstream
+    "language": "python",
+    "total_files": 42,
+    "total_endpoints": 7,
+    "docs_path": "/absolute/path/to/docs"
+=======
+    "language": "java",
+    "total_files": 42,
+    "total_endpoints": 17,
+    "docs_path": "/full/path/to/docs"
+>>>>>>> Stashed changes
+  }
+}
+```
+
+<<<<<<< Updated upstream
 ### Error Response (HTTP 500 – clone or generation failure)
 
 ```json
@@ -599,39 +1044,138 @@ curl -X POST "http://localhost:8000/generate-from-path" \
 | `folder_path` | `/home/user/projects/sample-python-app` |
 
 ### Successful Response (HTTP 200)
+=======
+**Error – Git clone failure (HTTP 500)**
+
+```json
+{
+  "error": "fatal: repository 'https://github.com/nonexistent/repo' not found"
+}
+```
+
+---
+
+## `POST /generate-from-path`
+
+**Description** – Run the documentation pipeline on a local folder.
+
+```bash
+curl -X POST "http://localhost:8000/generate-from-path" \
+     -H "Content-Type: multipart/form-data" \
+     -F "folder_path=/home/user/projects/example-repo"
+```
+
+**Success (HTTP 200)**
+>>>>>>> Stashed changes
 
 ```json
 {
   "status": "success",
   "metrics": {
     "language": "python",
+<<<<<<< Updated upstream
     "total_files": 42,
     "total_endpoints": 7,
     "docs_path": "/absolute/path/to/docs"
   }
+=======
+    "total_files": 128,
+    "total_endpoints": 23,
+    "docs_path": "/full/path/to/docs"
+  }
+}
+```
+
+**Error – Path does not exist (HTTP 400)**
+
+```json
+{
+  "error": "Path does not exist: /nonexistent/path"
+}
+```
+
+**Error – Path is not a directory (HTTP 400)**
+
+```json
+{
+  "error": "Path is not a directory: /home/user/file.txt"
+>>>>>>> Stashed changes
 }
 ```
 
 ### Validation Error (HTTP 400)
 
+<<<<<<< Updated upstream
 *Path does not exist*
 
 ```json
 {
   "error": "Path does not exist: /invalid/path"
+=======
+## `GET /traces`
+
+**Description** – Retrieve all stored agent execution traces.
+
+```bash
+curl -X GET "http://localhost:8000/traces" -H "Accept: application/json"
+```
+
+**Success (HTTP 200)**
+
+```json
+{
+  "status": "success",
+  "traces": [
+    "{\"agent\": \"CodeAnalyzer\", \"time\": \"2024-02-13T12:34:56Z\", \"output\": \"...\"}",
+    "{\"agent\": \"API Semantics\", \"time\": \"2024-02-13T12:35:10Z\", \"output\": \"...\"}"
+  ]
+}
+```
+
+**Error – Database connection failure (HTTP 500)**
+
+```json
+{
+  "error": "could not connect to server: Connection refused"
+>>>>>>> Stashed changes
 }
 ```
 
 *Path is not a directory*
 
+<<<<<<< Updated upstream
 ```json
 {
   "error": "Path is not a directory: /home/user/file.txt"
+=======
+## `GET /docs-static/{page}` (Static Files)
+
+**Description** – Serve static documentation files from the `docs/` directory.
+
+```bash
+curl -X GET "http://localhost:8000/docs-static/README.md" -H "Accept: text/plain"
+```
+
+**Success (HTTP 200, `text/markdown`)**
+
+```markdown
+# README
+
+Documentation was generated for the example Java project.
+```
+
+**Error – File not found (HTTP 404)**
+
+```json
+{
+  "detail": "Not Found"
+>>>>>>> Stashed changes
 }
 ```
 
 ### Generation Error (HTTP 500)
 
+<<<<<<< Updated upstream
 ```json
 {
   "error": "Error while running documentation crew: unexpected EOF while reading"
@@ -776,4 +1320,111 @@ graph LR
     style Tools fill:#bfb,stroke:#333,stroke-width:2px
     style Models fill:#ffb,stroke:#333,stroke-width:2px
     style Data fill:#ffe,stroke:#333,stroke-width:2px
+=======
+# Summary of Required Headers per Endpoint
+
+| Endpoint | Method | Required Headers |
+|----------|--------|-------------------|
+| `/generate-from-git` | POST | `Content-Type: multipart/form-data` |
+| `/generate-from-path` | POST | `Content-Type: multipart/form-data` |
+| `/traces` | GET | `Accept: application/json` |
+| `/docs-static/{page}` | GET | `Accept: text/plain` (or appropriate MIME) |
+
+Feel free to adapt the examples to your environment (host, port, auth headers if added later).
+
+===SECTION: TEST_DOCUMENTATION.md===
+# Test Documentation
+
+## Overview
+- **Total Test Files**: 1
+- **Total Test Cases**: 10
+- **Test Frameworks**: None detected
+
+## Test Types
+- **Unit**: 1 test file
+
+## Test Files Details
+
+### /Users/Shriya/Documents/docgenerator/Hackathon-Doc-generator/test_connection.py
+**Type**: unit  
+**Test Cases**: 10  
+- `test_llm`  
+- `test_embeddings_v1`  
+- `test_embeddings_api`  
+- `test_models`  
+- `test_embeddings_extra`  
+- `test_api_tags`  
+- `test_models` (duplicate entry)  
+- `test_embeddings_exhaustive`  
+- `test_ollama_library`  
+- `test_embeddings_exhaustive` (duplicate entry)
+
+No additional test frameworks or integration tests were detected in the repository.
+
+===SECTION: architecture.mermaid===
+flowchart LR
+    %% Presentation Layer
+    subgraph Presentation[Presentation Layer]
+        API[FastAPI (api_server.py)]
+        UI[Frontend (docgen‑frontend)]
+    end
+    
+    %% Application Layer
+    subgraph Application[Application Layer]
+        Main[Main Entrypoint (src/doc_generator/main.py)]
+        Crew[DocGenerator Crew (src/doc_generator/crew.py)]
+    end
+    
+    %% Domain / Model Layer
+    subgraph Domain[Domain / Model Layer]
+        CodeModel[CodeStructure Models (src/doc_generator/models/code_structure.py)]
+        DocOut[DocumentationOutput Model (src/doc_generator/models/documentation_output.py)]
+    end
+    
+    %% Infrastructure Layer
+    subgraph Infrastructure[Infrastructure Layer]
+        SM[SharedMemory (src/doc_generator/tools/shared_memory.py)]
+        PG[PostgreSQLStorage (src/doc_generator/tools/postgres_storage.py)]
+        CA[CodeAnalyzer Tool (src/doc_generator/tools/code_analyzer.py)]
+        CP[ConfigParser Tool (src/doc_generator/tools/config_parser.py)]
+        GA[Guardrails Tool (src/doc_generator/tools/guardrails.py)]
+        MR[MemoryReader Tool (src/doc_generator/tools/memory_reader.py)]
+        TA[TestAnalyzer Tool (src/doc_generator/tools/test_analyzer.py)]
+        GE[GEval Metrics (src/doc_generator/geval_metrics.py)]
+    end
+    
+    %% External Services
+    subgraph External[External Services]
+        DB[(PostgreSQL DB)]
+        LLM[(Ollama LLM)]
+        CI[(Confident AI Observability)]
+        Git[(Git Repository)]
+    end
+    
+    %% Relationships
+    UI -- calls --> API
+    API --> Main
+    Main --> Crew
+    Crew -- orchestrates --> CA
+    Crew -- orchestrates --> CP
+    Crew -- orchestrates --> GA
+    Crew -- orchestrates --> TA
+    Crew -- orchestrates --> GE
+    Crew -- stores/retrieves --> SM
+    SM -- persists --> DB
+    PG -- writes traces --> DB
+    CA -- writes parsed code --> SM
+    CP -- writes config data --> SM
+    MR -- reads shared data --> SM
+    GA -- validates output --> SM
+    TA -- writes test analysis --> SM
+    GE -- evaluates docs --> SM
+    LLM -- used by agents (via Crew) --> API
+    CI -- receives traces & metrics --> Crew
+    API -- clones --> Git
+    style Presentation fill:#f9f,stroke:#333,stroke-width:2px
+    style Application fill:#bbf,stroke:#333,stroke-width:2px
+    style Domain fill:#bfb,stroke:#333,stroke-width:2px
+    style Infrastructure fill:#ffb,stroke:#333,stroke-width:2px
+>>>>>>> Stashed changes
     style External fill:#ddd,stroke:#333,stroke-width:2px

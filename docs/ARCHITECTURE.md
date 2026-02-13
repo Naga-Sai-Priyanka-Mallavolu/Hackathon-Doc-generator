@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # System Architecture Overview
 
 The **Documentation Generator** is a Python‑based, multi‑agent system that can be invoked either via a **CLI** (`src/doc_generator/main.py`) or a **REST API** (`api_server.py`).  
@@ -217,3 +218,130 @@ graph LR
 ```
 
 All components are accounted for in the diagram and narrative, satisfying the requirement to capture **controllers/routes, services, repositories, models, utilities, configuration, security, and external integrations**.
+=======
+# Architecture Documentation
+
+This document provides a complete overview of the **doc‑generator** system, including a Mermaid diagram and a detailed narrative of its layers, components, data flow, persistence, security, observability, and extensibility.
+
+## Narrative Architecture Description
+
+### 1. Architectural Pattern
+The system follows a **layered (n‑tier) architecture** with micro‑service‑style componentization inside a single FastAPI process. The layers are:
+
+1. **Presentation Layer** – FastAPI endpoints (`api_server.py`) and a React/Vite UI (`docgen‑frontend`).
+2. **Application Layer** – Orchestration logic (`src/doc_generator/main.py`) that launches the **DocGenerator Crew** (`src/doc_generator/crew.py`).
+3. **Domain / Model Layer** – Pydantic and dataclass models that describe extracted code structure and generated documentation (`src/doc_generator/models/*`).
+4. **Infrastructure Layer** – Tools and adapters (code analyser, config parser, guard‑rails, PostgreSQL storage, shared‑memory singleton, test analyser, GEval metrics).
+5. **External Services** – PostgreSQL, Ollama LLM, Confident AI observability, and remote Git repositories.
+
+### 2. Component Roles
+| Component | Layer | Role |
+|-----------|-------|------|
+| `api_server.py` (FastAPI) | Presentation | HTTP routes (`/generate-from-git`, `/generate-from-path`, `/traces`). Delegates to the application layer. |
+| `docgen‑frontend` (React) | Presentation | UI that consumes the FastAPI endpoints and renders markdown/diagrams. |
+| `src/doc_generator/main.py` | Application | Boots the crew, handles retries, evaluation, and final document persistence. |
+| `src/doc_generator/crew.py` – `DocGenerator` class | Application | Declares agents (code analyser, API semantics, architecture reasoning, example generation, getting‑started guide, document assembler) and the tasks that wire them together. Provides `run_with_evaluation`. |
+| `src/doc_generator/models/*` | Domain | `CodeStructure` (language‑agnostic AST) and `DocumentationOutput` (structured output with `save_to_folder`). |
+| `src/doc_generator/tools/code_analyzer.py` | Infrastructure | Parses source files (Python, Java, generic) and stores AST data in shared memory. |
+| `src/doc_generator/tools/config_parser.py` | Infrastructure | Extracts Maven, Gradle, npm, Docker, Spring, and generic configuration files. |
+| `src/doc_generator/tools/guardrails.py` | Infrastructure / Security | Redacts secrets, checks hallucination, validates JSON/Markdown, and enforces quality gates. |
+| `src/doc_generator/tools/memory_reader.py` | Infrastructure | Reads arbitrary keys from shared memory for agents that need prior artefacts. |
+| `src/doc_generator/tools/postgres_storage.py` | Infrastructure | Persists trace records and metric results to PostgreSQL (`DocGenTaskRecord`). |
+| `src/doc_generator/tools/shared_memory.py` | Infrastructure | Singleton backed by a PostgreSQL table; provides `set/get/append_to_list` etc. |
+| `src/doc_generator/tools/test_analyzer.py` | Infrastructure | Analyses test files (Python, Java, JavaScript) and stores a summary in shared memory. |
+| `src/doc_generator/geval_metrics.py` | Infrastructure | Creates GEval metric objects (faithfulness, toxicity, hallucination, relevance, completion, efficiency) and can upload them to Confident AI. |
+| PostgreSQL DB | External | Persistent store for shared memory, task traces, and evaluation metrics. |
+| Ollama LLM | External | Large language model used by crew agents to generate documentation content. |
+| Confident AI | External | Observability platform that receives tracing spans and metric uploads. |
+| Git repository (remote URL) | External | Source of code when `/generate-from-git` is invoked. |
+
+### 3. Data Persistence Strategy
+* **SharedMemory** (singleton) acts as the in‑process cache and is backed by a PostgreSQL table (`docgen`). All agents read/write through it.  
+* **PostgreSQLStorage** stores immutable trace entries (`DocGenTaskRecord`) for auditability and historical metric analysis.  
+* Generated documentation files are written to the filesystem under the user‑provided output directory; the path is communicated back to the client.
+
+### 4. Security Architecture
+* **Guardrails** validates output before it leaves the system: redacts API keys, passwords, tokens, and PII; checks for hallucinations; validates JSON/Markdown syntax; enforces quality thresholds.  
+* FastAPI enables CORS only for trusted origins.  
+* Sensitive configuration (DB credentials, Confident AI API key) is loaded from `.env` and never stored in shared memory because guard‑rails redact it.  
+* External calls (Git clone, Ollama inference, Confident AI upload) run in async functions with proper timeout/exception handling.
+
+### 5. Observability & Traceability
+* The `@observe` decorator (`deepeval.tracing`) wraps crew execution, producing **Confident AI spans** that capture agent name, task name, tool calls, timestamps, and confidence scores.  
+* GEval metric results can be uploaded via `geval_metrics.upload_all_metrics`.  
+* The `/traces` endpoint queries the PostgreSQL trace table, allowing users to inspect past runs.
+
+### 6. Extensibility
+* Adding a new documentation section only requires a new **Agent** and associated **Task** in `crew.py`; shared‑memory contracts remain unchanged.  
+* Supporting additional programming languages involves extending **CodeAnalyzer** with language‑specific parsers.  
+* Storage back‑ends can be swapped by implementing the same `BaseTool` interface (`_run`) for another database or cloud store.
+
+## Mermaid Diagram
+```mermaid
+flowchart LR
+    %% Presentation Layer
+    subgraph Presentation[Presentation Layer]
+        API[FastAPI (api_server.py)]
+        UI[Frontend (docgen‑frontend)]
+    end
+    
+    %% Application Layer
+    subgraph Application[Application Layer]
+        Main[Main Entrypoint (src/doc_generator/main.py)]
+        Crew[DocGenerator Crew (src/doc_generator/crew.py)]
+    end
+    
+    %% Domain / Model Layer
+    subgraph Domain[Domain / Model Layer]
+        CodeModel[CodeStructure Models (src/doc_generator/models/code_structure.py)]
+        DocOut[DocumentationOutput Model (src/doc_generator/models/documentation_output.py)]
+    end
+    
+    %% Infrastructure Layer
+    subgraph Infrastructure[Infrastructure Layer]
+        SM[SharedMemory (src/doc_generator/tools/shared_memory.py)]
+        PG[PostgreSQLStorage (src/doc_generator/tools/postgres_storage.py)]
+        CA[CodeAnalyzer Tool (src/doc_generator/tools/code_analyzer.py)]
+        CP[ConfigParser Tool (src/doc_generator/tools/config_parser.py)]
+        GA[Guardrails Tool (src/doc_generator/tools/guardrails.py)]
+        MR[MemoryReader Tool (src/doc_generator/tools/memory_reader.py)]
+        TA[TestAnalyzer Tool (src/doc_generator/tools/test_analyzer.py)]
+        GE[GEval Metrics (src/doc_generator/geval_metrics.py)]
+    end
+    
+    %% External Services
+    subgraph External[External Services]
+        DB[(PostgreSQL DB)]
+        LLM[(Ollama LLM)]
+        CI[(Confident AI Observability)]
+        Git[(Git Repository)]
+    end
+    
+    %% Relationships
+    UI -- calls --> API
+    API --> Main
+    Main --> Crew
+    Crew -- orchestrates --> CA
+    Crew -- orchestrates --> CP
+    Crew -- orchestrates --> GA
+    Crew -- orchestrates --> TA
+    Crew -- orchestrates --> GE
+    Crew -- stores/retrieves --> SM
+    SM -- persists --> DB
+    PG -- writes traces --> DB
+    CA -- writes parsed code --> SM
+    CP -- writes config data --> SM
+    MR -- reads shared data --> SM
+    GA -- validates output --> SM
+    TA -- writes test analysis --> SM
+    GE -- evaluates docs --> SM
+    LLM -- used by agents (via Crew) --> API
+    CI -- receives traces & metrics --> Crew
+    API -- clones --> Git
+    style Presentation fill:#f9f,stroke:#333,stroke-width:2px
+    style Application fill:#bbf,stroke:#333,stroke-width:2px
+    style Domain fill:#bfb,stroke:#333,stroke-width:2px
+    style Infrastructure fill:#ffb,stroke:#333,stroke-width:2px
+    style External fill:#ddd,stroke:#333,stroke-width:2px
+```
+>>>>>>> Stashed changes
