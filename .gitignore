@@ -80,4 +80,3 @@ dist-ssr
 *.sw?
 .venv
 .env
-/docs

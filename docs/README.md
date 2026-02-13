@@ -1,7 +1,6 @@
 # Documentation Generator
 
 ## Table of Contents
-<<<<<<< Updated upstream
 - [Project Overview](#project-overview)  
 - [Getting Started](#getting-started)  
 - [Running the Application](#running-the-application)  
@@ -50,72 +49,10 @@ pip install psycopg2-binary
 # Create .env file
 cat > .env <<EOF
 CONFIDENT_API_KEY=ck_your_key_here
-=======
-- [Project Overview](#project-overview)
-- [Getting Started](#getting-started)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running the Application](#running-the-application)
-- [Quick Start Example](#quick-start-example)
-- [Project Structure](#project-structure)
-- [Troubleshooting](#troubleshooting)
-- [Further Documentation](#further-documentation)
-
-## Project Overview
-**doc‑generator** is an AI‑powered documentation generator that extracts source code, configuration, and test information from a repository, runs a series of crew‑AI agents, evaluates the output with GEval metrics, and writes a complete set of markdown documentation (README, API reference, architecture diagram, examples, test docs, etc.).
-
-- **Core purpose** – Automatically produce high‑quality project documentation without manual writing.
-- **Technology stack** – Python 3.10‑3.13, FastAPI, PostgreSQL, Ollama LLM, React 19 + Vite frontend, npm, Docker.
-
-## Getting Started
-
-### Prerequisites
-
-| Tool | Minimum version | Install command |
-|------|----------------|-----------------|
-| Python | 3.10 ≤ x < 3.14 | `pyenv install 3.12 && pyenv global 3.12` |
-| pip | latest (bundled) | `python -m ensurepip --upgrade` |
-| Node.js | 20.x (LTS) | `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs` |
-| npm | 10.x (bundled) | `npm --version` |
-| PostgreSQL | 14.x+ | `sudo apt-get install postgresql-14` |
-| Git | any recent | `git --version` |
-| Docker (optional) | 24.x | `docker pull postgres:15 && docker run …` |
-
-### Installation
-
-```bash
-# 1️⃣ Clone the repository
-git clone https://github.com/your-org/doc-generator.git
-cd doc-generator
-
-# 2️⃣ Set up a Python virtual environment
-python -m venv .venv
-source .venv/bin/activate
-
-# 3️⃣ Install Python dependencies
-pip install --upgrade pip
-pip install .   # installs package and crewAI[tools], deepeval, etc.
-
-# 4️⃣ Install the React frontend dependencies
-cd docgen-frontend
-npm install
-cd ..
-
-# 5️⃣ Prepare the PostgreSQL database
-psql -U postgres <<SQL
-CREATE DATABASE docgen;
-CREATE USER docgen_user WITH ENCRYPTED PASSWORD 'password';
-GRANT ALL PRIVILEGES ON DATABASE docgen TO docgen_user;
-SQL
-
-# 6️⃣ Create a .env file at the project root
-cat > .env <<EOF
->>>>>>> Stashed changes
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_DB=docgen
 POSTGRES_USER=docgen_user
-<<<<<<< Updated upstream
 POSTGRES_PASSWORD=strongpassword
 EOF
 
@@ -177,88 +114,19 @@ curl -X POST "http://localhost:8000/generate-from-git" \
 ```
 
 Response (example):
-=======
-POSTGRES_PASSWORD=password
-OLLAMA_HOST=http://127.0.0.1:11434
-EOF
-
-# 7️⃣ Build the frontend (optional – needed only for UI)
-cd docgen-frontend
-npm run build   # produces static assets in dist/
-cd ..
-
-# 8️⃣ Verify the installation
-python -m doc_generator --help   # should show CLI entry points
-```
-
-### Configuration
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `POSTGRES_HOST` | PostgreSQL host | `localhost` |
-| `POSTGRES_PORT` | PostgreSQL port | `5432` |
-| `POSTGRES_DB`   | Database name | `docgen` |
-| `POSTGRES_USER` | DB user | `docgen_user` |
-| `POSTGRES_PASSWORD` | DB password | `password` |
-| `OLLAMA_HOST` | URL of the local Ollama server | `http://127.0.0.1:11434` |
-
-Optional:
-- `LOG_LEVEL` – set to `DEBUG` for verbose logs.
-- `MAX_RETRY_ATTEMPTS` – number of crew retries (default 3).
-
-### Running the Application
-
-#### API server (FastAPI)
-
-```bash
-source .venv/bin/activate
-uvicorn api_server:app --host 0.0.0.0 --port 8000
-```
-
-The API is reachable at `http://localhost:8000`.
-
-#### CLI entry points
-
-```bash
-# From a local folder
-doc_generator generate-from-path --folder_path /path/to/project --output_dir ./generated-docs
-
-# From a public Git repo
-doc_generator generate-from-git --git_url https://github.com/example/example-repo.git --output_dir ./generated-docs
-```
-
-All generated markdown files will be placed under the supplied `output_dir`.
-
-### Quick Start – First API Call
-
-```bash
-curl -X POST "http://localhost:8000/generate-from-path" \
-     -H "Content-Type: multipart/form-data" \
-     -F "folder_path=$(pwd)"
-```
-
-Expected JSON response (truncated):
->>>>>>> Stashed changes
 
 ```json
 {
   "status": "success",
   "metrics": {
     "language": "python",
-<<<<<<< Updated upstream
     "total_files": 42,
     "total_endpoints": 7,
     "docs_path": "/absolute/path/to/documentation-generator/docs"
-=======
-    "total_files": 120,
-    "total_endpoints": 5,
-    "docs_path": "/full/path/to/generated-docs"
->>>>>>> Stashed changes
   }
 }
 ```
 
-<<<<<<< Updated upstream
 See the full **API Reference** in [API_REFERENCE.md](API_REFERENCE.md).
 
 ### 6. Troubleshooting  
@@ -293,47 +161,3 @@ doc_generator test 2 gpt-4
 ---
 
 Enjoy automatically generated documentation! 🎉
-=======
-Open the `docs_path` folder to find `README.md`, `API_REFERENCE.md`, `ARCHITECTURE.md`, etc.
-
-### Project Structure
-
-```
-/doc-generator
-│
-├─ src/
-│   └─ doc_generator/
-│       ├─ crew.py
-│       ├─ main.py
-│       ├─ models/
-│       └─ tools/
-│
-├─ docgen-frontend/
-│   ├─ src/
-│   └─ package.json
-│
-├─ api_server.py
-├─ pyproject.toml
-├─ .env.example
-└─ tests/
-```
-
-### Troubleshooting
-
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| Port 8000 already in use | Another process bound to 8000 | Run on another port (`uvicorn ... --port 8080`) or stop the other service |
-| DB connection error | Wrong `.env` values or PostgreSQL not running | Verify `.env` and test `psql` connection |
-| `ImportError: No module named crewai` | Dependencies not installed | `pip install .` inside the venv |
-| Frontend build fails | Node version too old | Upgrade to Node 20+, delete `node_modules`, run `npm install` |
-| LLM request times out | Ollama not running | Start Ollama (`ollama serve`) and check `curl $OLLAMA_HOST/v1/models` |
-| Tests fail with `psycopg2` errors | Missing PostgreSQL client lib | `pip install psycopg2-binary` |
-
-Set `LOG_LEVEL=DEBUG` in `.env` for detailed logs.
-
-## Further Documentation
-- **API Reference**: See [API_REFERENCE.md](API_REFERENCE.md)  
-- **System Architecture**: See [ARCHITECTURE.md](ARCHITECTURE.md)  
-- **Code Examples**: See [EXAMPLES.md](EXAMPLES.md)  
-- **Test Documentation**: See [TEST_DOCUMENTATION.md](TEST_DOCUMENTATION.md)
->>>>>>> Stashed changes
