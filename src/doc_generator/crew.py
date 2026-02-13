@@ -74,14 +74,6 @@ def _compress_context(text: str, max_chars: int = 8000) -> str:
 
 # # Apply the patch
 # HTTPHandler.post = _patched_post
-def _trace_step_callback(step):
-    """Silent callback to capture each agent step and store it in PostgreSQL."""
-    try:
-        from doc_generator.tools.shared_memory import SharedMemory
-        # Store using a session-specific key if possible, but for now stick to 'agent_traces'
-        SharedMemory().append_to_list("agent_traces", str(step))
-    except:
-        pass # Stay silent as requested
 
 
 @CrewBase
@@ -146,7 +138,6 @@ class DocGenerator():
             tools=[self._code_analyzer_tool(), self._memory_reader_tool(), self._guardrails_tool()],
             verbose=True,
             allow_delegation=False,
-            step_callback=_trace_step_callback,
         )
 
     # ═══════════════════════════════════════════════════════════════════
@@ -160,7 +151,6 @@ class DocGenerator():
             tools=[self._memory_reader_tool(), self._guardrails_tool()],
             verbose=True,
             allow_delegation=False,
-            step_callback=_trace_step_callback,
         )
 
     # ═══════════════════════════════════════════════════════════════════
@@ -174,7 +164,6 @@ class DocGenerator():
             tools=[self._memory_reader_tool(), self._guardrails_tool()],
             verbose=True,
             allow_delegation=False,
-            step_callback=_trace_step_callback,
         )
 
     # ═══════════════════════════════════════════════════════════════════
@@ -188,7 +177,6 @@ class DocGenerator():
             tools=[self._memory_reader_tool(), self._guardrails_tool()],
             verbose=True,
             allow_delegation=False,
-            step_callback=_trace_step_callback,
         )
 
     # ═══════════════════════════════════════════════════════════════════
@@ -202,7 +190,6 @@ class DocGenerator():
             tools=[self._memory_reader_tool(), self._guardrails_tool(), self._config_parser_tool()],
             verbose=True,
             allow_delegation=False,
-            step_callback=_trace_step_callback,
         )
 
     # ═══════════════════════════════════════════════════════════════════
@@ -216,7 +203,6 @@ class DocGenerator():
             tools=[self._memory_reader_tool(), self._guardrails_tool(), self._test_docs_tool()],
             verbose=True,
             allow_delegation=False,
-            step_callback=_trace_step_callback,
         )
 
     # ═══════════════════════════════════════════════════════════════════
@@ -387,53 +373,66 @@ class DocGenerator():
         session_id: Optional[str] = None,
         store_locally: bool = True,
         upload_metrics: bool = True,
-        silent: bool = False,
     ) -> Dict[str, Any]:
         """
         Run crew with integrated evaluation.
+
+        Flow:
+        1. Execute crew
+        2. Evaluate output with GEval metrics
+        3. Store results locally
+        4. Upload metrics to Confident AI
+
+        Args:
+            inputs: Input dictionary for crew
+            expected_output: Reference output for comparison
+            session_id: Optional session ID for tracking
+            store_locally: Store results locally
+            upload_metrics: Upload metrics to Confident AI
+
+        Returns:
+            Dictionary with output, evaluation results, and file paths
         """
         session_id = session_id or str(uuid.uuid4())
 
-        if not silent:
-            print(f"\n{'='*60}")
-            print(f"Running CrewAI with Evaluation (Session: {session_id[:8]})")
-            print(f"{'='*60}")
+        print(f"\n{'='*60}")
+        print(f"Running CrewAI with Evaluation (Session: {session_id[:8]})")
+        print(f"{'='*60}")
 
-        if not silent: print("\n[1/4] Executing crew...")
+        print("\n[1/4] Executing crew...")
         output = self.crew().kickoff(inputs)
-        if not silent: print("   ✓ Crew execution complete")
+        print("   ✓ Crew execution complete")
 
-        if not silent: print("\n[2/4] Running GEval metrics...")
+        print("\n[2/4] Running GEval metrics...")
         eval_result = self._evaluate_output(
             input_text=str(inputs),
             actual_output=output,
             expected_output=expected_output,
             session_id=session_id,
         )
-        if not silent: print(f"   ✓ Evaluation complete ({len(eval_result['results'])} metrics)")
+        print(f"   ✓ Evaluation complete ({len(eval_result['results'])} metrics)")
 
         stored_file = None
         if store_locally:
-            if not silent: print("\n[3/4] Storing results locally...")
+            print("\n[3/4] Storing results locally...")
             stored_file = self._store_results_locally(eval_result)
-            if not silent: print(f"   ✓ Stored: {stored_file}")
+            print(f"   ✓ Stored: {stored_file}")
 
         if upload_metrics:
-            if not silent: print("\n[4/4] Uploading metrics to Confident AI...")
+            print("\n[4/4] Uploading metrics to Confident AI...")
             try:
                 upload_results = self._upload_metrics_to_confident_ai()
-                if not silent: print(f"   ✓ Uploaded {len(upload_results)} metrics")
+                print(f"   ✓ Uploaded {len(upload_results)} metrics")
             except Exception as e:
-                if not silent: print(f"   ✗ Upload failed: {e}")
+                print(f"   ✗ Upload failed: {e}")
 
         avg_score = sum(
             r["score"] for r in eval_result["results"].values() if r["success"]
         ) / len(eval_result["results"]) if eval_result["results"] else 0
 
-        if not silent:
-            print(f"\n{'='*60}")
-            print(f"Evaluation Complete - Average Score: {avg_score:.2f}")
-            print(f"{'='*60}")
+        print(f"\n{'='*60}")
+        print(f"Evaluation Complete - Average Score: {avg_score:.2f}")
+        print(f"{'='*60}")
 
         return {
             "session_id": session_id,

@@ -348,11 +348,6 @@ document_assembly_task:
     - Use guardrails.check_quality() with expected_sections=["README", "API Reference", "Architecture", "Examples", "Test Documentation"]
     - If any issues are found, fix them before returning final output
     - Ensure no sensitive data is exposed in any section
-    MANDATORY FINAL STEP:
-    - CALL the "postgres_storage" tool with:
-    - task_name: "Final Documentation Assembly"
-    - agent_role: "Document Assembler"
-    - result: [The final assembled documentation string]
   expected_output: >
     A single document containing all six sections separated by
     ===SECTION: filename=== markers. Each section contains the
