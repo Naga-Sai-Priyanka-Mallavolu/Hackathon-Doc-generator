@@ -49,6 +49,8 @@ from doc_generator.geval_metrics import (
     create_execution_efficiency_metric,
     METRIC_COLLECTION,
     evaluate_docs,
+    run_evaluation,
+    get_all_metrics,
 )
 
 # ── deepeval imports AFTER env is loaded ───────────────────────────────
