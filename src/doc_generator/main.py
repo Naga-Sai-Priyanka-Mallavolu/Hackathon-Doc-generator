@@ -48,6 +48,7 @@ from doc_generator.geval_metrics import (
     create_task_completion_metric,
     create_execution_efficiency_metric,
     METRIC_COLLECTION,
+    evaluate_docs,
 )
 
 # ── deepeval imports AFTER env is loaded ───────────────────────────────
@@ -234,51 +235,25 @@ def _run_evaluation_traced(output: str, folder_path: str, attempt: int = 1) -> d
 
     # Measure locally to get actual scores (0-1 range)
     print(f"\n   Measuring 6 metrics locally...")
-    results = {}
-    for metric in metrics:
-        try:
-            metric.measure(test_case)
-            raw_score = metric.score
-            
-            # GEval can return different scales:
-            # - 0-1 scale (e.g., 0.96): multiply by 10
-            # - 0-10 scale (e.g., 10.0): use as-is
-            # - 0-100 scale (e.g., 96): divide by 10
-            if raw_score <= 1:
-                # 0-1 scale, convert to 0-10
-                score = round(raw_score * 10, 2)
-            elif raw_score <= 10:
-                # Already 0-10 scale
-                score = round(raw_score, 2)
-            else:
-                # 0-100 scale, convert to 0-10
-                score = round(raw_score / 10, 2)
-            
-            # Ensure score is within 0-10 range
-            if score > 10:
-                score = 10.0
-            elif score < 0:
-                score = 0.0
-            
-            key = metric.name.lower().replace(" ", "_")
-            results[key] = score
-            status = "✓" if metric.is_successful() else "✗"
-            print(f"   {status} {metric.name}: {score:.1f}/10")
-        except Exception as e:
-            key = metric.name.lower().replace(" ", "_")
-            results[key] = 0.0
-            print(f"   ✗ {metric.name}: failed — {e}")
+    
+    # Use centralized evaluation logic
+    eval_result = run_evaluation(test_case)
+    results = eval_result["scores"]
+    avg_score = eval_result["avg_score"]
 
-    # ── D: Update metric objects with scaled scores before upload ────────
+    # Print results (similar to original logic for consistency)
+    for key, score in results.items():
+        print(f"   ✓ {key.replace('_', ' ').title()}: {score:.1f}/10")
+
+    # -- D: Update metric objects with scaled scores before upload --------
     # Confident AI expects 0-1 scale, so convert our 0-10 scores
+    metrics = get_all_metrics() # Get fresh instances to set scores on
     for metric in metrics:
         key = metric.name.lower().replace(" ", "_")
         if key in results:
-            # Convert 0-10 scale to 0-1 scale for Confident AI
-            raw_score = results[key]
-            metric.score = raw_score / 10.0  # Convert to 0-1 scale
+            metric.score = results[key] / 10.0
     
-    # ── E: Upload to Confident AI Testing → Test Runs ─────────────────
+    # -- E: Upload to Confident AI Testing → Test Runs ─────────────────
     try:
         evaluate(
             test_cases=[test_case],

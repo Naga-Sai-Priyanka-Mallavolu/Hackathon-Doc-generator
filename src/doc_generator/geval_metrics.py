@@ -9,10 +9,20 @@ Each metric can be uploaded to Confident AI for tracking and comparison.
 """
 
 import os
+import ssl
+import certifi
+
+# Fix for macOS SSLCertVerificationError
+os.environ['SSL_CERT_FILE'] = certifi.where()
+os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
+
 from deepeval.models import OllamaModel
 from deepeval.metrics import GEval
-from deepeval.test_case import LLMTestCaseParams
-from typing import List, Optional
+from deepeval.metrics import GEval
+from deepeval.test_case import LLMTestCaseParams, LLMTestCase
+from deepeval import evaluate, login as deepeval_login
+from typing import List, Optional, Dict, Any
+import deepeval
 
 OLLAMA_MODEL = os.environ.get("OLLAMA_EVAL_MODEL", "deepseek-r1:1.5b")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -20,6 +30,14 @@ METRIC_COLLECTION = os.environ.get("DEEPEVAL_METRIC_COLLECTION", "my-evals")
 
 def _get_eval_model() -> OllamaModel:
     """Create and return the Ollama model used for GEval evaluation."""
+    # Ensure authenticated if key is present
+    api_key = os.environ.get("CONFIDENT_API_KEY")
+    if api_key:
+        try:
+            deepeval_login(api_key)
+        except:
+            pass
+            
     return OllamaModel(
         model=OLLAMA_MODEL,
         base_url=OLLAMA_BASE_URL,
@@ -208,6 +226,65 @@ def get_all_metrics() -> List[GEval]:
         create_task_completion_metric(),
         create_execution_efficiency_metric(),
     ]
+
+
+def run_evaluation(test_case: LLMTestCase) -> Dict[str, Any]:
+    """
+    Measure GEval metrics for a test case and return scaled scores.
+    """
+    metrics = get_all_metrics()
+    # -- Run Evaluation and Upload --
+    # evaluate() runs all metrics in parallel/batch and handles the upload
+    try:
+        evaluate(
+            test_cases=[test_case],
+            metrics=metrics,
+            identifier=f"{METRIC_COLLECTION}-{test_case.input[:20]}"
+        )
+    except Exception as e:
+        print(f"  ! Evaluation/Upload failed: {e}")
+
+    # Extract scores from metrics after evaluate() has run them
+    scores = {}
+    for metric in metrics:
+        raw_score = getattr(metric, 'score', 0) or 0
+        
+        # Scale adjustment (0-1 -> 0-10, 0-10 -> 0-10, 0-100 -> 0-10)
+        if raw_score <= 1:
+            score = round(raw_score * 10, 2)
+        elif raw_score <= 10:
+            score = round(raw_score, 2)
+        else:
+            score = round(raw_score / 10, 2)
+        
+        if score > 10: score = 10.0
+        elif score < 0: score = 0.0
+        
+        key = metric.name.lower().replace(" ", "_")
+        scores[key] = score
+
+    avg_score = sum(scores.values()) / len(scores) if scores else 0.0
+    return {"scores": scores, "avg_score": avg_score}
+
+
+def evaluate_docs(actual_output: str, folder_path: str) -> Dict[str, Any]:
+    """
+    High-level entry point to evaluate documentation.
+    Handles test case creation and GEval measurement.
+    """
+    context = [
+        f"Task: Generate complete technical documentation for codebase at {folder_path}",
+        "Required sections: README, API Reference, Architecture, Examples",
+        "Output should be accurate, complete, non-toxic, and efficient",
+    ]
+
+    test_case = LLMTestCase(
+        input=f"Generate documentation for: {folder_path}",
+        actual_output=actual_output,
+        context=context,
+    )
+
+    return run_evaluation(test_case)
 
 
 def upload_all_metrics(api_key: Optional[str] = None) -> dict:
