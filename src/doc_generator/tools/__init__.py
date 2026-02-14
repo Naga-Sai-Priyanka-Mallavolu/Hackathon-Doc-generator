@@ -5,7 +5,6 @@ from .code_analyzer import CodeAnalyzer
 from .memory_reader import SharedMemoryReader
 from .guardrails import GuardrailsTool
 from .config_parser import ConfigParserTool
-from .test_analyzer import TestAnalyzerTool, TestDocsTool
 
 __all__ = [
     "SharedMemory",
@@ -13,6 +12,4 @@ __all__ = [
     "SharedMemoryReader",
     "GuardrailsTool",
     "ConfigParserTool",
-    "TestAnalyzerTool",
-    "TestDocsTool",
 ]

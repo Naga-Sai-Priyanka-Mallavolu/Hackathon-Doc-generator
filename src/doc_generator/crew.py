@@ -11,7 +11,7 @@ from pathlib import Path
 # from litellm.llms.custom_httpx.http_handler import HTTPHandler
 from deepeval.integrations.crewai import instrument_crewai
 from deepeval.test_case import LLMTestCase
-from doc_generator.tools import CodeAnalyzer, SharedMemoryReader, GuardrailsTool, ConfigParserTool, TestAnalyzerTool, TestDocsTool
+from doc_generator.tools import CodeAnalyzer, SharedMemoryReader, GuardrailsTool, ConfigParserTool
 from doc_generator.geval_metrics import (
     create_faithfulness_metric,
     create_toxicity_metric,
@@ -120,12 +120,7 @@ class DocGenerator():
     
     def _config_parser_tool(self) -> ConfigParserTool:
         return ConfigParserTool()
-    
-    def _test_analyzer_tool(self) -> TestAnalyzerTool:
-        return TestAnalyzerTool()
-    
-    def _test_docs_tool(self) -> TestDocsTool:
-        return TestDocsTool()
+
 
     # ═══════════════════════════════════════════════════════════════════
     # Agent 1 – Code Analyzer
@@ -200,7 +195,7 @@ class DocGenerator():
         return Agent(
             config=self.agents_config['document_assembler'],
             # llm=self.ollama_cloud_llm,
-            tools=[self._memory_reader_tool(), self._guardrails_tool(), self._test_docs_tool()],
+            tools=[self._memory_reader_tool(), self._guardrails_tool()],
             verbose=True,
             allow_delegation=False,
         )
@@ -493,6 +488,89 @@ class DocGenerator():
         return Crew(
             agents=self.agents,
             tasks=self.tasks,
+            process=Process.sequential,
+            verbose=True,
+            memory=False,
+            tracing=True,
+        )
+
+    def crew_for_edit_iteration(self, inputs: Dict[str, Any]) -> Crew:
+        """
+        Create a crew for edit iteration that skips code_analysis.
+        
+        When human feedback requires edits, we re-run the pipeline but skip
+        the code_analysis task since the codebase hasn't changed.
+        
+        Args:
+            inputs: Input dictionary containing folder_path and human_feedback
+            
+        Returns:
+            Crew instance with tasks excluding code_analysis
+        """
+        human_feedback = inputs.get("human_feedback", "")
+        
+        # Create all agents
+        code_analyzer = self.code_analyzer()
+        api_agent = self.api_semantics_agent()
+        arch_agent = self.architecture_reasoning_agent()
+        examples_agent = self.example_generator_agent()
+        getting_started_agent = self.getting_started_agent()
+        assembler = self.document_assembler()
+        
+        # Create tasks - skip code_analysis, start from api_semantics
+        # Include human feedback in the task descriptions
+        
+        api_task = Task(
+            config=self.tasks_config['api_semantics_task'],
+            agent=api_agent,
+            # Inject human feedback into the task context
+            description=self.tasks_config['api_semantics_task']['description'] + 
+                       f"\n\nHUMAN FEEDBACK FOR REVISION: {human_feedback}\n" +
+                       "Please address this feedback when generating the API documentation."
+        )
+        
+        arch_task = Task(
+            config=self.tasks_config['architecture_reasoning_task'],
+            agent=arch_agent,
+            context=[api_task],
+            description=self.tasks_config['architecture_reasoning_task']['description'] + 
+                       f"\n\nHUMAN FEEDBACK FOR REVISION: {human_feedback}\n" +
+                       "Please address this feedback when generating the architecture documentation."
+        )
+        
+        examples_task = Task(
+            config=self.tasks_config['examples_generation_task'],
+            agent=examples_agent,
+            context=[api_task, arch_task],
+            description=self.tasks_config['examples_generation_task']['description'] + 
+                       f"\n\nHUMAN FEEDBACK FOR REVISION: {human_feedback}\n" +
+                       "Please address this feedback when generating the examples."
+        )
+        
+        getting_started_task = Task(
+            config=self.tasks_config['getting_started_task'],
+            agent=getting_started_agent,
+            context=[arch_task, examples_task],
+            description=self.tasks_config['getting_started_task']['description'] + 
+                       f"\n\nHUMAN FEEDBACK FOR REVISION: {human_feedback}\n" +
+                       "Please address this feedback when generating the Getting Started guide."
+        )
+        
+        assembly_task = Task(
+            config=self.tasks_config['document_assembly_task'],
+            agent=assembler,
+            context=[
+                # Include code_analysis task result from shared memory (already there)
+                api_task,
+                arch_task,
+                examples_task,
+                getting_started_task,
+            ]
+        )
+        
+        return Crew(
+            agents=[api_agent, arch_agent, examples_agent, getting_started_agent, assembler],
+            tasks=[api_task, arch_task, examples_task, getting_started_task, assembly_task],
             process=Process.sequential,
             verbose=True,
             memory=False,

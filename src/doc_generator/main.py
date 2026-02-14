@@ -35,6 +35,11 @@ except ImportError:
 from doc_generator.crew import DocGenerator
 from doc_generator.tools.shared_memory import SharedMemory
 from doc_generator.models import DocumentationOutput
+from doc_generator.human_in_the_loop import (
+    HumanInTheLoop,
+    ApprovalStatus,
+    apply_human_feedback,
+)
 from doc_generator.geval_metrics import (
     create_faithfulness_metric,
     create_toxicity_metric,
@@ -504,11 +509,57 @@ def run():
             print(f"✗ BELOW THRESHOLD — using best available output")
         print(f"{'='*70}\n")
 
-        # ── 5: Write docs ──────────────────────────────────────────────
+        # ── 5: Human-in-the-Loop Approval ──────────────────────────────
         sections = _extract_sections_from_crew(crew_instance, raw_output)
+
+        # Initialize human-in-the-loop system
+        hitl = HumanInTheLoop(auto_approve=False)
+
+        # Request human approval before saving
+        print("\n" + "=" * 70)
+        print("INITIATING HUMAN-IN-THE-LOOP APPROVAL")
+        print("=" * 70)
+
+        approval_result = hitl.request_approval(sections, raw_output)
+
+        if approval_result.status == ApprovalStatus.EDIT_REQUESTED:
+            print("\n📝 Re-running agents with human feedback...")
+            print(f"   Feedback: {approval_result.feedback[:100]}...")
+
+            # Re-run crew with feedback (code_analyzer already ran, so we skip it)
+            # The feedback is injected into the task descriptions for the downstream agents
+            edit_inputs = {
+                "folder_path": folder_path,
+                "timestamp": datetime.now().isoformat(),
+                "human_feedback": approval_result.feedback,
+            }
+
+            # Re-run the crew with feedback using the special edit iteration crew
+            print("\n[1] Re-executing crew pipeline with feedback (skipping code analysis)...")
+            
+            doc_gen = DocGenerator()
+            edit_crew = doc_gen.crew_for_edit_iteration(edit_inputs)
+            result = edit_crew.kickoff(inputs=edit_inputs)
+            
+            # Extract output from edit crew
+            raw_output = _extract_final_output(edit_crew)
+            if not raw_output:
+                raw_output = getattr(result, "raw", None) or (
+                    result if isinstance(result, str) else str(result)
+                )
+            
+            # Extract new sections
+            sections = _extract_sections_from_crew(edit_crew, raw_output)
+
+            print("\n✓ Agents re-run complete. Proceeding to save updated documentation...")
+
+        else:  # APPROVED
+            print("\n✅ Documentation approved by human operator. Proceeding to save...")
+
+        # ── 6: Write docs ──────────────────────────────────────────────
         _write_final_docs(sections, raw_output, folder_path, crew_instance)
 
-        # ── 6: Flush to Confident AI ───────────────────────────────────
+        # ── 7: Flush to Confident AI ───────────────────────────────────
         _flush_traces()
 
         return result

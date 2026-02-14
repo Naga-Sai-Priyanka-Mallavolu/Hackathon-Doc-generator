@@ -16,7 +16,6 @@ class DocumentationOutput(BaseModel):
     api_reference: str = Field(description="API Reference documentation (API_REFERENCE.md content)")
     architecture: str = Field(description="Architecture documentation (ARCHITECTURE.md content)")
     examples: str = Field(description="API Examples documentation (EXAMPLES.md content)")
-    test_documentation: str = Field(description="Test documentation (TEST_DOCUMENTATION.md content)")
     architecture_diagram: str = Field(description="Mermaid diagram for architecture (diagrams/architecture.mermaid content)")
     
     # Optional metadata
@@ -34,7 +33,6 @@ class DocumentationOutput(BaseModel):
                 "api_reference": "# API Reference...",
                 "architecture": "# Architecture...",
                 "examples": "# Examples...",
-                "test_documentation": "# Test Documentation...",
                 "architecture_diagram": "graph TD...",
                 "summary": "Spring Boot REST API with JWT auth",
                 "total_files": 25,
@@ -51,7 +49,6 @@ class DocumentationOutput(BaseModel):
         ├── API_REFERENCE.md
         ├── ARCHITECTURE.md
         ├── EXAMPLES.md
-        ├── TEST_DOCUMENTATION.md
         └── diagrams/
             └── architecture.mermaid
         """
@@ -71,15 +68,14 @@ class DocumentationOutput(BaseModel):
         (output_path / "API_REFERENCE.md").write_text(self.api_reference, encoding="utf-8")
         (output_path / "ARCHITECTURE.md").write_text(self.architecture, encoding="utf-8")
         (output_path / "EXAMPLES.md").write_text(self.examples, encoding="utf-8")
-        (output_path / "TEST_DOCUMENTATION.md").write_text(self.test_documentation, encoding="utf-8")
+
         
         # Save mermaid diagram
         (diagrams_path / "architecture.mermaid").write_text(self.architecture_diagram, encoding="utf-8")
         
-        print(f"✅ Documentation saved to {output_path}")
+        print(f" Documentation saved to {output_path}")
         print(f"   - README.md")
         print(f"   - API_REFERENCE.md")
         print(f"   - ARCHITECTURE.md")
         print(f"   - EXAMPLES.md")
-        print(f"   - TEST_DOCUMENTATION.md")
         print(f"   - diagrams/architecture.mermaid")

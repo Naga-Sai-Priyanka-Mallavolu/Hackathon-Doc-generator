@@ -303,11 +303,6 @@ document_assembly_task:
     - You will receive summaries, not full raw data
     - Focus on assembling these summaries cleanly with section markers
     - Do NOT expand or regenerate content — use what you receive as-is
-
-    Use the "test_docs_generator" tool with folder_path="{folder_path}" to:
-    - Generate test documentation (tool automatically checks if tests exist)
-    - If no test files are found, it will create a "No tests found" section
-    - If tests exist, it will generate comprehensive test documentation
     
     Produce a SINGLE output with clear section separators using this
     EXACT format:
@@ -323,12 +318,6 @@ document_assembly_task:
 
     ===SECTION: EXAMPLES.md===
     [Examples Agent output — code samples for all endpoints]
-
-    ===SECTION: TEST_DOCUMENTATION.md===
-    [Use the "test_docs_generator" tool with folder_path="{folder_path}" to generate
-    comprehensive test documentation. This tool will automatically detect if tests exist
-    and create appropriate documentation. If no tests are found, it will create a
-    "No tests found" section.]
 
     ===SECTION: architecture.mermaid===
     [Extract ONLY the raw Mermaid diagram code from the Architecture
@@ -351,7 +340,5 @@ document_assembly_task:
   expected_output: >
     A single document containing all six sections separated by
     ===SECTION: filename=== markers. Each section contains the
-    documentation from each agent. Include TEST_DOCUMENTATION.md
-    section with test analysis if tests exist.
     Output ONLY valid MARKDOWN with section separators. Keep under 60k chars.
   agent: document_assembler
