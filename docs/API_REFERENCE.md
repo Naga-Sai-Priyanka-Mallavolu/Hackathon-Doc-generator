@@ -1,304 +1,163 @@
-# REST API Reference
+# API Reference
 
-This document describes all 32 REST endpoints exposed by the API, organized by controller. The API uses Spring Boot (Java) with Spring Security for authorization.
-
----
-
-## Summary Table
-
-| Controller | Base Path | Endpoints | Auth |
-|------------|-----------|-----------|------|
-| `UserRestController` | `/api/users` | 5 | ADMIN, USER |
-| `ProductRestController` | `/api/products` | 6 | AUTHENTICATED, ADMIN |
-| `OrderRestController` | `/api/orders` | 5 | ADMIN, MERCHANT, USER, OWNER |
-| `AuthRestController` | `/auth` | 3 | PUBLIC |
-| `HealthCheckController` | `/actuator/health` | 1 | PUBLIC |
-| `CategoryRestController` | `/api/categories` | 5 | AUTHENTICATED, ADMIN |
-| `ReviewRestController` | `/api/reviews` | 6 | AUTHENTICATED, USER, ADMIN |
+| # | HTTP Method | URL Path | Function | Source File | Line |
+|---|--------------|----------|----------|-------------|------|
+| 1 | **GET** | `/users/` | `get_all_users` | `main.py` | 13 |
+| 2 | **GET** | `/users/{user_id}` | `get_user_by_email` | `main.py` | 17 |
+| 3 | **POST** | `/users/` | `create_user` | `main.py` | 25 |
+| 4 | **PUT** | `/users/{user_id}` | `update_user_by_email` | `main.py` | 33 |
+| 5 | **DELETE** | `/users/{user_id}` | `delete_user_by_email` | `main.py` | 43 |
 
 ---
 
-## 1. UserRestController (`/api/users`)
+## 1. Get All Users  
 
-### `GET /api/users`  
-- **Purpose**: Retrieve all users  
-- **Parameters**: None  
-- **Response**: `List<User>`  
-- **Security**: ADMIN only  
-- **Exceptions**: —  
-- **Source**: `UserRestController.java:16`
+**Endpoint**: `GET /users/`  
 
-### `GET /api/users/{id}`  
-- **Purpose**: Retrieve a user by ID  
-- **Parameters**: `id` (path, `Long`)  
-- **Response**: `User`  
-- **Security**: ADMIN or USER  
-- **Exceptions**: `UserNotFoundException`  
-- **Source**: `UserRestController.java:23`
+**Function**: `get_all_users(db: Session)`  
 
-### `POST /api/users`  
-- **Purpose**: Create a new user  
-- **Parameters**: `user` (`UserCreateRequest` in body)  
-- **Response**: `User`  
-- **Security**: ADMIN only  
-- **Exceptions**: —  
-- **Source**: `UserRestController.java:31`
+**Description**  
+Returns a collection of all user records stored in the database.
 
-### `PUT /api/users/{id}`  
-- **Purpose**: Update user by ID  
-- **Parameters**: `id` (path, `Long`), `user` (`UserUpdateRequest` in body)  
-- **Response**: `User`  
-- **Security**: ADMIN only  
-- **Exceptions**: `UserNotFoundException`  
-- **Source**: `UserRestController.java:39`
+**Parameters**  
 
-### `DELETE /api/users/{id}`  
-- **Purpose**: Delete user by ID  
-- **Parameters**: `id` (path, `Long`)  
-- **Response**: `void`  
-- **Security**: ADMIN only  
-- **Exceptions**: `UserNotFoundException`  
-- **Source**: `UserRestController.java:47`
+| Name | Location | Type | Required |
+|------|----------|------|----------|
+| `db` | **dependency** (injected) | `Session` | Yes |
+
+**Response**  
+
+| Status Code | Body Type | Description |
+|-------------|-----------|-------------|
+| `200` | `list[User]` (inferred) | List of user objects. |
+| *Other* | *unspecified* | *[unknown]* |
+
+**Security**: None declared.
+
+**Source**: `main.py:13`  
+
 
 ---
 
-## 2. ProductRestController (`/api/products`)
+## 2. Get User By ID  
 
-### `GET /api/products`  
-- **Purpose**: Retrieve all products  
-- **Parameters**: None  
-- **Response**: `List<Product>`  
-- **Security**: Authenticated users  
-- **Exceptions**: —  
-- **Source**: `ProductRestController.java:19`
+**Endpoint**: `GET /users/{user_id}`  
 
-### `GET /api/products/{id}`  
-- **Purpose**: Retrieve a product by ID  
-- **Parameters**: `id` (path, `Long`)  
-- **Response**: `Product`  
-- **Security**: Authenticated users  
-- **Exceptions**: `ProductNotFoundException`  
-- **Source**: `ProductRestController.java:26`
+**Function**: `get_user_by_email(user_id: int, db: Session)`  
 
-### `POST /api/products`  
-- **Purpose**: Create a new product  
-- **Parameters**: `product` (`ProductCreateRequest` in body)  
-- **Response**: `Product`  
-- **Security**: ADMIN only  
-- **Exceptions**: —  
-- **Source**: `ProductRestController.java:34`
+**Description**  
+Retrieves a single user identified by `user_id`.
 
-### `PUT /api/products/{id}`  
-- **Purpose**: Update product by ID  
-- **Parameters**: `id` (path, `Long`), `product` (`ProductUpdateRequest` in body)  
-- **Response**: `Product`  
-- **Security**: ADMIN only  
-- **Exceptions**: `ProductNotFoundException`  
-- **Source**: `ProductRestController.java:42`
+**Parameters**  
 
-### `DELETE /api/products/{id}`  
-- **Purpose**: Delete product by ID  
-- **Parameters**: `id` (path, `Long`)  
-- **Response**: `void`  
-- **Security**: ADMIN only  
-- **Exceptions**: `ProductNotFoundException`  
-- **Source**: `ProductRestController.java:50`
+| Name | Location | Type | Required |
+|------|----------|------|----------|
+| `user_id` | **path** | `int` | Yes |
+| `db` | **dependency** (injected) | `Session` | Yes |
 
-### `GET /api/products/search`  
-- **Purpose**: Search products by criteria  
-- **Parameters**:  
-  - `name` (query, `String`, optional)  
-  - `minPrice` (query, `BigDecimal`, optional)  
-  - `maxPrice` (query, `BigDecimal`, optional)  
-- **Response**: `List<Product>`  
-- **Security**: Authenticated users  
-- **Exceptions**: —  
-- **Source**: `ProductRestController.java:58`
+**Response**  
+
+| Status Code | Body Type | Description |
+|-------------|-----------|-------------|
+| `200` | `User` (inferred) | The requested user object. |
+| `404` | *unspecified* | User not found. |
+| *Other* | *unspecified* | *[unknown]* |
+
+**Security**: None declared.
+
+**Source**: `main.py:17`  
+
 
 ---
 
-## 3. OrderRestController (`/api/orders`)
+## 3. Create New User  
 
-### `GET /api/orders`  
-- **Purpose**: Retrieve all orders  
-- **Parameters**: None  
-- **Response**: `List<Order>`  
-- **Security**: ADMIN or MERCHANT  
-- **Exceptions**: —  
-- **Source**: `OrderRestController.java:16`
+**Endpoint**: `POST /users/`  
 
-### `GET /api/orders/{id}/{userId}`  
-- **Purpose**: Retrieve an order by ID, with owner verification  
-- **Parameters**: `id` (path, `Long`), `userId` (path, `Long`)  
-- **Response**: `Order`  
-- **Security**: ADMIN, MERCHANT, or `principal.userId == #userId` (owner)  
-- **Exceptions**: `OrderNotFoundException`  
-- **Source**: `OrderRestController.java:23`
+**Function**: `create_user(user: UserCreate, db: Session)`  
 
-### `POST /api/orders`  
-- **Purpose**: Create a new order  
-- **Parameters**: `order` (`OrderCreateRequest` in body)  
-- **Response**: `Order`  
-- **Security**: USER role  
-- **Exceptions**: —  
-- **Source**: `OrderRestController.java:31`
+**Description**  
+Creates a new user record using the data supplied in the request body.
 
-### `PATCH /api/orders/{id}/status`  
-- **Purpose**: Update order status  
-- **Parameters**: `id` (path, `Long`), `status` (`String` in body; must match pattern `^(PENDING\|SHIPPED\|DELIVERED\|CANCELLED)$`)  
-- **Response**: `Order`  
-- **Security**: ADMIN or MERCHANT  
-- **Exceptions**: `OrderNotFoundException`, `InvalidOrderStatusException`  
-- **Source**: `OrderRestController.java:39`
+**Parameters**  
 
-### `DELETE /api/orders/{id}`  
-- **Purpose**: Delete order by ID  
-- **Parameters**: `id` (path, `Long`)  
-- **Response**: `void`  
-- **Security**: ADMIN or MERCHANT  
-- **Exceptions**: `OrderNotFoundException`  
-- **Source**: `OrderRestController.java:48`
+| Name | Location | Type | Required |
+|------|----------|------|----------|
+| `user` | **body** | `UserCreate` | Yes |
+| `db` | **dependency** (injected) | `Session` | Yes |
+
+**Response**  
+
+| Status Code | Body Type | Description |
+|-------------|-----------|-------------|
+| `201` | `User` (inferred) | The newly created user. |
+| `400` | *unspecified* | Validation error. |
+| *Other* | *unspecified* | *[unknown]* |
+
+**Security**: None declared.
+
+**Source**: `main.py:25`  
+
 
 ---
 
-## 4. AuthRestController (`/auth`)
+## 4. Update Existing User  
 
-### `POST /auth/login`  
-- **Purpose**: Authenticate a user and return tokens  
-- **Parameters**: `loginRequest` (`LoginRequest` in body)  
-- **Response**: `AuthResponse`  
-- **Security**: Public (`@Anonymous`)  
-- **Exceptions**: `AuthenticationException`  
-- **Source**: `AuthRestController.java:14`
+**Endpoint**: `PUT /users/{user_id}`  
 
-### `POST /auth/register`  
-- **Purpose**: Register a new user  
-- **Parameters**: `registerRequest` (`RegisterRequest` in body)  
-- **Response**: `User`  
-- **Security**: Public  
-- **Exceptions**: `UserAlreadyExistsException`  
-- **Source**: `AuthRestController.java:22`
+**Function**: `update_user_by_email(user_id: int, user: UserUpdate, db: Session)`  
 
-### `POST /auth/refresh`  
-- **Purpose**: Refresh access token  
-- **Parameters**: `refreshToken` (`String` in body)  
-- **Response**: `AuthResponse`  
-- **Security**: Public  
-- **Exceptions**: `InvalidTokenException`  
-- **Source**: `AuthRestController.java:30`
+**Description**  
+Updates an existing user identified by `user_id` with the fields provided in the request body.
 
----
+**Parameters**  
 
-## 5. HealthCheckController (`/actuator/health`)
+| Name | Location | Type | Required |
+|------|----------|------|----------|
+| `user_id` | **path** | `int` | Yes |
+| `user` | **body** | `UserUpdate` | Yes |
+| `db` | **dependency** (injected) | `Session` | Yes |
 
-### `GET /actuator/health`  
-- **Purpose**: Application health status (Spring Boot actuator-style)  
-- **Parameters**: None  
-- **Response**: `HealthStatus`  
-- **Security**: Public  
-- **Exceptions**: —  
-- **Source**: `HealthCheckController.java:12`
+**Response**  
+
+| Status Code | Body Type | Description |
+|-------------|-----------|-------------|
+| `200` | `User` (inferred) | The updated user object. |
+| `404` | *unspecified* | User not found. |
+| `400` | *unspecified* | Validation error. |
+| *Other* | *unspecified* | *[unknown]* |
+
+**Security**: None declared.
+
+**Source**: `main.py:33`  
+
 
 ---
 
-## 6. CategoryRestController (`/api/categories`)
+## 5. Delete User  
 
-### `GET /api/categories`  
-- **Purpose**: Retrieve all categories  
-- **Parameters**: None  
-- **Response**: `List<Category>`  
-- **Security**: Authenticated users  
-- **Exceptions**: —  
-- **Source**: `CategoryRestController.java:16`
+**Endpoint**: `DELETE /users/{user_id}`  
 
-### `GET /api/categories/{id}`  
-- **Purpose**: Retrieve a category by ID  
-- **Parameters**: `id` (path, `Long`)  
-- **Response**: `Category`  
-- **Security**: Authenticated users  
-- **Exceptions**: `CategoryNotFoundException`  
-- **Source**: `CategoryRestController.java:23`
+**Function**: `delete_user_by_email(user_id: int, db: Session)`  
 
-### `POST /api/categories`  
-- **Purpose**: Create a new category  
-- **Parameters**: `category` (`CategoryCreateRequest` in body)  
-- **Response**: `Category`  
-- **Security**: ADMIN only  
-- **Exceptions**: —  
-- **Source**: `CategoryRestController.java:31`
+**Description**  
+Removes the user identified by `user_id` from the database.
 
-### `PUT /api/categories/{id}`  
-- **Purpose**: Update category by ID  
-- **Parameters**: `id` (path, `Long`), `category` (`CategoryUpdateRequest` in body)  
-- **Response**: `Category`  
-- **Security**: ADMIN only  
-- **Exceptions**: `CategoryNotFoundException`  
-- **Source**: `CategoryRestController.java:39`
+**Parameters**  
 
-### `DELETE /api/categories/{id}`  
-- **Purpose**: Delete category by ID  
-- **Parameters**: `id` (path, `Long`)  
-- **Response**: `void`  
-- **Security**: ADMIN only  
-- **Exceptions**: `CategoryNotFoundException`  
-- **Source**: `CategoryRestController.java:47`
+| Name | Location | Type | Required |
+|------|----------|------|----------|
+| `user_id` | **path** | `int` | Yes |
+| `db` | **dependency** (injected) | `Session` | Yes |
 
----
+**Response**  
 
-## 7. ReviewRestController (`/api/reviews`)
+| Status Code | Body Type | Description |
+|-------------|-----------|-------------|
+| `204` | *none* | Successful deletion (no content). |
+| `404` | *unspecified* | User not found. |
+| *Other* | *unspecified* | *[unknown]* |
 
-### `GET /api/reviews`  
-- **Purpose**: Retrieve all reviews  
-- **Parameters**: None  
-- **Response**: `List<Review>`  
-- **Security**: Authenticated users  
-- **Exceptions**: —  
-- **Source**: `ReviewRestController.java:18`
+**Security**: None declared.
 
-### `GET /api/reviews/{id}`  
-- **Purpose**: Retrieve a review by ID  
-- **Parameters**: `id` (path, `Long`)  
-- **Response**: `Review`  
-- **Security**: Authenticated users  
-- **Exceptions**: `ReviewNotFoundException`  
-- **Source**: `ReviewRestController.java:25`
-
-### `POST /api/reviews`  
-- **Purpose**: Create a new review  
-- **Parameters**: `review` (`ReviewCreateRequest` in body)  
-- **Response**: `Review`  
-- **Security**: USER role  
-- **Exceptions**: —  
-- **Source**: `ReviewRestController.java:33`
-
-### `PUT /api/reviews/{id}`  
-- **Purpose**: Update a review by ID  
-- **Parameters**: `id` (path, `Long`), `review` (`ReviewUpdateRequest` in body)  
-- **Response**: `Review`  
-- **Security**: USER role  
-- **Exceptions**: `ReviewNotFoundException`  
-- **Source**: `ReviewRestController.java:41`
-
-### `DELETE /api/reviews/{id}`  
-- **Purpose**: Delete a review by ID  
-- **Parameters**: `id` (path, `Long`)  
-- **Response**: `void`  
-- **Security**: ADMIN or owner (`principal.userId == #reviewId`)  
-- **Exceptions**: `ReviewNotFoundException`  
-- **Source**: `ReviewRestController.java:49`
-
-### `GET /api/reviews/by-product/{productId}`  
-- **Purpose**: Retrieve all reviews for a product  
-- **Parameters**: `productId` (path, `Long`)  
-- **Response**: `List<Review>`  
-- **Security**: Authenticated users  
-- **Exceptions**: —  
-- **Source**: `ReviewRestController.java:58`
-
----
-
-*Total endpoints: 32 | Controllers: 7 | Languages: Java (Spring Boot)*  
-*Authentication: Spring Security with `@PreAuthorize` expressions and custom `@Anonymous`*  
-*Note: All path variables are `Long` unless otherwise specified. Query params for `/api/products/search` are optional.*
-
----
+**Source**: `main.py:43`
