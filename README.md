@@ -205,10 +205,26 @@ This is a hackathon project demonstrating real agentic thinking. The architectur
 - Extensible (easy to add new languages, tools, agents)
 - Production-ready (includes evaluation, safety, quality checks)
 
-## 📝 License
+## create .env with following props
 
-See LICENSE file for details.
-
----
-
-**Built with [CrewAI](https://crewai.com)** - Multi-agent orchestration framework.
+- API_BASE= https://ollama.com/v1
+- MODEL_NAME= gpt-oss:120b-cloud
+- OPENAI_API_KEY=""
+- CREWAI_TRACING_ENABLED=false
+ 
+- CONFIDENT_API_KEY=
+- CONFIDENT_TRACE_VERBOSE=0
+- CONFIDENT_METRIC_LOGGING_FLUSH=1
+- DEEPEVAL_TEST_MODE=false
+ 
+# Ollama config for DeepEval GEval metrics currently using local model to eval we can switch it to cloud
+- OLLAMA_EVAL_MODEL=deepseek-r1:1.5b
+- OLLAMA_BASE_URL=http://localhost:11434
+- DEEPEVAL_METRIC_COLLECTION=my-evals
+ 
+# Increase timeout for Ollama eval calls (seconds per attempt)
+- DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE=300
+ 
+# Eval quality gate: min score to accept docs, max retries if below
+MIN_EVAL_SCORE=6.0
+MAX_RETRY_ATTEMPTS=2

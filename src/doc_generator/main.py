@@ -50,6 +50,7 @@ from doc_generator.geval_metrics import (
     METRIC_COLLECTION,
     evaluate_docs,
     run_evaluation,
+    upload_to_confident_ai,
     get_all_metrics,
 )
 
@@ -235,36 +236,30 @@ def _run_evaluation_traced(output: str, folder_path: str, attempt: int = 1) -> d
         create_execution_efficiency_metric(),
     ]
 
-    # Measure locally to get actual scores (0-1 range)
+    # Measure locally to get actual scores (0-10 scale)
     print(f"\n   Measuring 6 metrics locally...")
     
-    # Use centralized evaluation logic
-    eval_result = run_evaluation(test_case)
+    # Use centralized evaluation logic (no upload yet)
+    eval_result = run_evaluation(test_case, upload_to_confident=False)
     results = eval_result["scores"]
     avg_score = eval_result["avg_score"]
 
-    # Print results (similar to original logic for consistency)
+    # Print results
     for key, score in results.items():
         print(f"   ✓ {key.replace('_', ' ').title()}: {score:.1f}/10")
 
-    # -- D: Update metric objects with scaled scores before upload --------
-    # Confident AI expects 0-1 scale, so convert our 0-10 scores
-    metrics = get_all_metrics() # Get fresh instances to set scores on
-    for metric in metrics:
-        key = metric.name.lower().replace(" ", "_")
-        if key in results:
-            metric.score = results[key] / 10.0
-    
-    # -- E: Upload to Confident AI Testing → Test Runs ─────────────────
-    try:
-        evaluate(
-            test_cases=[test_case],
-            metrics=metrics,
-            identifier=f"{METRIC_COLLECTION}-attempt-{attempt}-{session_id}",
-        )
+    # -- D: Upload to Confident AI Testing → Test Runs ─────────────────
+    # Upload with 0-10 scale values
+    print(f"   Uploading to Confident AI...")
+    upload_success = upload_to_confident_ai(
+        test_case=test_case,
+        scores=results,
+        identifier=f"{METRIC_COLLECTION}-attempt-{attempt}-{session_id}"
+    )
+    if upload_success:
         print(f"   ✓ Uploaded → app.confident-ai.com → Testing → Test Runs")
-    except Exception as e:
-        print(f"   ✗ evaluate() upload failed: {e}")
+    else:
+        print(f"   ✗ Upload to Confident AI failed")
 
     avg_score = sum(results.values()) / len(results) if results else 0.0
     print(f"\n   Average score: {avg_score:.2f}/10")
@@ -486,7 +481,12 @@ def run():
             print(f"✗ BELOW THRESHOLD — using best available output")
         print(f"{'='*70}\n")
 
-        # ── 5: Human-in-the-Loop Approval ──────────────────────────────
+        # ── 5: Flush to Confident AI first (before HTL) ───────────────
+        # This ensures metrics are uploaded before user interaction
+        _flush_traces()
+        print("   ✓ All metrics flushed to Confident AI\n")
+
+        # ── 6: Human-in-the-Loop Approval ──────────────────────────────
         sections = _extract_sections_from_crew(crew_instance, raw_output)
 
         # Initialize human-in-the-loop system
@@ -533,11 +533,8 @@ def run():
         else:  # APPROVED
             print("\n✅ Documentation approved by human operator. Proceeding to save...")
 
-        # ── 6: Write docs ──────────────────────────────────────────────
+        # ── 7: Write docs ──────────────────────────────────────────────
         _write_final_docs(sections, raw_output, folder_path, crew_instance)
-
-        # ── 7: Flush to Confident AI ───────────────────────────────────
-        _flush_traces()
 
         return result
 
